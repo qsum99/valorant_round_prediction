@@ -1,21 +1,18 @@
 """
 watcher.py
 -----------
-Watches your overflowf output folder for new JSON files.
+Watches raw_matchs_data/ for new JSON files.
 When a new match JSON appears, automatically runs feature extraction
 and appends the new rows to pre_round.csv and live_round.csv.
 
 Usage:
-    python watcher.py                          # watches data/raw/, outputs to data/
-    python watcher.py --raw C:/overflowf/logs  # custom watch folder
-    python watcher.py --raw C:/overflowf/logs --output data/
+    python watcher.py                                       # watches raw_matchs_data/
+    python watcher.py --raw C:/overwolf/logs                # custom watch folder
+    python watcher.py --raw C:/overwolf/logs --output out/  # custom output
 
-Setup on Windows (overflowf saves logs here by default):
-    python watcher.py --raw "C:/Users/YOUR_NAME/AppData/Local/Overwolf/Log/Apps/..."
-
-Just run this before you start playing. It stays running in the background.
-Every time you finish a game and overflowf saves a new .json, it gets processed
-automatically and appended to your dataset.
+Run this before you start playing. It stays running in the background.
+Every time you finish a game and Overwolf saves a new .json, it gets
+processed automatically and appended to your dataset.
 """
 
 import time
@@ -37,27 +34,26 @@ _DEFAULT_RAW = str(_SCRIPT_DIR / ".." / "raw_matchs_data")
 _DEFAULT_OUT = _DEFAULT_RAW  # CSVs go into the same raw data folder
 
 # Import our extractor
-sys.path.insert(0, str(Path(__file__).parent))
-from extract_features import extract_from_file, write_csv
+sys.path.insert(0, str(_SCRIPT_DIR))
+from extract_features import extract_from_file
 
 
 class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
+    """Handles new JSON files by extracting features and appending to CSVs."""
+
     def __init__(self, output_dir, processed):
-        self.output_dir  = Path(output_dir)
-        self.processed   = processed  # set of already-processed filenames
-        self.pre_path    = self.output_dir / "pre_round.csv"
-        self.live_path   = self.output_dir / "live_round.csv"
+        self.output_dir = Path(output_dir)
+        self.processed  = processed  # set of already-processed filenames
+        self.pre_path   = self.output_dir / "pre_round.csv"
+        self.live_path  = self.output_dir / "live_round.csv"
 
     def on_created(self, event):
         if event.is_directory:
             return
         path = Path(event.src_path)
-        if path.suffix == ".json":
-            time.sleep(2)   # wait for overflowf to finish writing
+        if path.suffix == ".json" and not path.name.startswith("."):
+            time.sleep(2)  # wait for Overwolf to finish writing
             self._process(path)
-
-    def on_modified(self, event):
-        pass  # skip — overflowf writes then closes, triggers on_created
 
     def _process(self, path):
         if path.name in self.processed:
@@ -67,14 +63,13 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
         try:
             pre, live = extract_from_file(path)
             if not pre:
-                print("  No rounds extracted — maybe still writing, skipping.")
+                print("  No rounds extracted, skipping.")
                 self.processed.discard(path.name)
                 return
 
             labeled = sum(1 for r in pre if r["winner"])
             print(f"  Rounds: {len(pre)}  Kill events: {len(live)}  Labeled: {labeled}")
 
-            # Append to existing CSVs (write header only if file doesn't exist)
             self._append(pre,  self.pre_path)
             self._append(live, self.live_path)
 
@@ -86,11 +81,11 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
             self.processed.discard(path.name)
 
     def _append(self, rows, path):
+        """Append rows to CSV; write header only when creating a new file."""
         if not rows:
             return
-        mode   = "a" if path.exists() else "w"
         header = not path.exists()
-        with open(path, mode, newline="") as f:
+        with open(path, "a" if path.exists() else "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             if header:
                 writer.writeheader()
@@ -104,7 +99,7 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
                 print(f"  [{label}.csv total rows: {n}]")
 
 
-def get_already_processed(raw_dir, output_dir):
+def get_already_processed(output_dir):
     """Find JSON files already in pre_round.csv to avoid reprocessing."""
     pre_path = Path(output_dir) / "pre_round.csv"
     processed = set()
@@ -121,8 +116,8 @@ def fallback_poll(raw_dir, output_dir, interval=10):
     raw_dir    = Path(raw_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    processed  = get_already_processed(raw_dir, output_dir)
-    handler    = MatchHandler(output_dir, processed)
+    processed = get_already_processed(output_dir)
+    handler   = MatchHandler(output_dir, processed)
 
     print(f"[Polling mode] Checking {raw_dir} every {interval}s for new .json files")
     print("Install watchdog for instant detection: pip install watchdog")
@@ -130,17 +125,15 @@ def fallback_poll(raw_dir, output_dir, interval=10):
 
     while True:
         for path in sorted(raw_dir.glob("*.json")):
-            if path.name not in processed:
-                # Simulate the event
-                class E:
-                    is_directory = False
-                    src_path = str(path)
+            if not path.name.startswith(".") and path.name not in processed:
                 handler._process(path)
         time.sleep(interval)
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Watch for new match JSON files and auto-extract features."
+    )
     parser.add_argument("--raw",    default=_DEFAULT_RAW, help="Folder to watch for new JSON files")
     parser.add_argument("--output", default=_DEFAULT_OUT, help="Output folder for CSVs")
     parser.add_argument("--poll-interval", type=int, default=10, help="Polling interval in seconds (fallback mode)")
@@ -152,10 +145,10 @@ def main():
 
     if not raw_dir.exists():
         print(f"Watch folder not found: {raw_dir}")
-        print("Create it or pass --raw path/to/your/overflowf/output/")
+        print("Create it or pass --raw path/to/your/overwolf/output/")
         return
 
-    processed = get_already_processed(raw_dir, output_dir)
+    processed = get_already_processed(output_dir)
     print(f"Already processed: {len(processed)} files")
 
     if not HAS_WATCHDOG:

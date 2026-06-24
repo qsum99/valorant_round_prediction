@@ -1,26 +1,25 @@
 """
 extract_features.py
 --------------------
-Reads overflowf JSON logs and outputs two CSVs:
+Reads Overwolf JSON logs and outputs two CSVs:
 
-  pre_round.csv  — one row per round (snapshot at shopping phase)
-                   → training data for Model A (pre-round predictor)
+  pre_round.csv  - one row per round (snapshot at shopping phase)
+                   Training data for Model A (pre-round predictor)
 
-  live_round.csv — one row per kill event per round
-                   → training data for Model B (live predictor)
+  live_round.csv - one row per kill event per round
+                   Training data for Model B (live predictor)
 
 Usage:
-    python extract_features.py                        # processes data/raw/*.json
-    python extract_features.py path/to/match.json    # single file
-    python extract_features.py data/raw/ -o data/    # custom output dir
+    python extract_features.py                              # processes raw_matchs_data/*.json
+    python extract_features.py path/to/match.json           # single file
+    python extract_features.py raw_matchs_data/ -o output/  # custom output dir
 """
 
 import json
 import csv
-import sys
-import glob
 import argparse
 from pathlib import Path
+
 
 # Resolve raw_matchs_data relative to this script's location
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -28,14 +27,15 @@ _DEFAULT_RAW = str(_SCRIPT_DIR / ".." / "raw_matchs_data")
 _DEFAULT_OUT = _DEFAULT_RAW  # CSVs go into the same raw data folder
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
-MAX_TEAM_MONEY = 45_000   # 5 players × 9000 cap
+# -- Constants ----------------------------------------------------------------
+MAX_TEAM_MONEY = 45_000   # 5 players x 9000 cap
 PLAYER_COUNT   = 5
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
 def parse_json(val):
+    """Parse a JSON string; return dict. Pass-through if already a dict."""
     if isinstance(val, str):
         try:
             return json.loads(val)
@@ -68,41 +68,46 @@ def att_def(allies, enemies, my_side):
     """Map allies/enemies to attacker/defender based on local player's side."""
     if my_side == "attack":
         return allies, enemies
-    elif my_side == "defense":
+    if my_side == "defense":
         return enemies, allies
     return None, None
 
 
 def economy_features(att, dff):
+    """Return (att_money, def_money, economy_diff)."""
     att_money = min(sum(p.get("money", 0) for p in att), MAX_TEAM_MONEY)
     def_money = min(sum(p.get("money", 0) for p in dff), MAX_TEAM_MONEY)
     return att_money, def_money, att_money - def_money
 
 
 def alive_features(att, dff):
+    """Return (att_alive, def_alive, alive_diff)."""
     att_alive = sum(1 for p in att if p.get("alive"))
     def_alive = sum(1 for p in dff if p.get("alive"))
     return att_alive, def_alive, att_alive - def_alive
 
 
 def ult_features(att, dff):
+    """Return (att_ults_ready, def_ults_ready)."""
     def ult_ready(p):
         mx = p.get("ult_max", 0)
         return mx > 0 and p.get("ult_points", 0) >= mx
 
-    att_ults = sum(1 for p in att if ult_ready(p))
-    def_ults = sum(1 for p in dff if ult_ready(p))
-    return att_ults, def_ults
+    return (
+        sum(1 for p in att if ult_ready(p)),
+        sum(1 for p in dff if ult_ready(p)),
+    )
 
 
 def score_features(snap):
+    """Return (score_won, score_lost, score_diff)."""
     sc = parse_json(snap.get("score"))
     won  = sc.get("won",  0) if sc else 0
     lost = sc.get("lost", 0) if sc else 0
     return won, lost, won - lost
 
 
-# ── Per-round winner detection ───────────────────────────────────────────────
+# -- Per-round winner detection -----------------------------------------------
 
 def build_round_winners(end_snapshots):
     """
@@ -134,27 +139,25 @@ def build_round_winners(end_snapshots):
     return winners
 
 
-# ── Main extraction ──────────────────────────────────────────────────────────
+# -- Main extraction ----------------------------------------------------------
 
 def extract_from_file(filepath):
     """
     Returns:
-        pre_rows  — list of dicts (one per round)
-        live_rows — list of dicts (one per kill event per round)
+        pre_rows  - list of dicts (one per round)
+        live_rows - list of dicts (one per kill event per round)
     """
     with open(filepath) as f:
         data = json.load(f)
 
     source = Path(filepath).name
 
-    # ── Pass 1: build full streaming state + collect snapshots ────────────
+    # -- Pass 1: build streaming state + collect snapshots --------------------
     state          = {}
     shopping_snaps = {}   # round_number -> snap at shopping phase
     end_snaps      = []   # snap at end phase (for winner detection)
     round_spikes   = {}   # round_number -> True if spike was planted
-
-    # Also track kill events with their round context
-    kill_timeline  = []   # [{round, kill_number_in_round, kf_data, snap_at_kill}]
+    kill_timeline  = []   # [{round, kill_index, kf, state_snap}]
     kills_in_round = {}   # round -> count
 
     for item in data:
@@ -169,19 +172,15 @@ def extract_from_file(filepath):
                 rnd = state.get("round_number")
                 if rnd and rnd not in shopping_snaps:
                     shopping_snaps[rnd] = dict(state)
-
             elif phase == "end":
                 end_snaps.append(dict(state))
-
             elif phase == "combat":
-                # Reset kill counter for new round
                 rnd = state.get("round_number")
                 if rnd and rnd not in kills_in_round:
                     kills_in_round[rnd] = 0
 
         elif item["type"] == "event":
             for ev in item.get("data", {}).get("events", []):
-
                 if ev["name"] == "planted_location":
                     rnd = state.get("round_number")
                     if rnd:
@@ -192,18 +191,17 @@ def extract_from_file(filepath):
                     if rnd and state.get("round_phase") == "combat":
                         kills_in_round[rnd] = kills_in_round.get(rnd, 0) + 1
                         kill_timeline.append({
-                            "round"          : rnd,
-                            "kill_index"     : kills_in_round[rnd],
-                            "kf"             : parse_json(ev["data"]) if isinstance(ev["data"], str) else ev["data"],
-                            "state_snap"     : dict(state),
+                            "round":      rnd,
+                            "kill_index": kills_in_round[rnd],
+                            "kf":         parse_json(ev["data"]) if isinstance(ev["data"], str) else ev["data"],
+                            "state_snap": dict(state),
                         })
 
-    # ── Pass 2: build winner map from end snapshots ───────────────────────
+    # -- Pass 2: winner map from end snapshots --------------------------------
     round_winners = build_round_winners(end_snaps)
-
     match_id = state.get("match_id", "")
 
-    # ── Pass 3: build pre_round rows (Model A) ────────────────────────────
+    # -- Pass 3: pre_round rows (Model A) -------------------------------------
     pre_rows = []
     for rnd, snap in shopping_snaps.items():
         allies, enemies = parse_scoreboard(snap)
@@ -216,9 +214,8 @@ def extract_from_file(filepath):
             continue
 
         att_money, def_money, economy_diff = economy_features(att, dff)
-        att_alive, def_alive, alive_diff   = alive_features(att, dff)
-        att_ults, def_ults                  = ult_features(att, dff)
-        score_won, score_lost, score_diff   = score_features(snap)
+        att_ults, def_ults                 = ult_features(att, dff)
+        score_won, score_lost, score_diff  = score_features(snap)
 
         pre_rows.append({
             "source_file"    : source,
@@ -226,41 +223,34 @@ def extract_from_file(filepath):
             "round_number"   : rnd,
             "map"            : snap.get("map", ""),
             "local_team_side": my_side,
-            # Economy
             "att_money"      : att_money,
             "def_money"      : def_money,
             "economy_diff"   : economy_diff,
-            # Ults
             "att_ults_ready" : att_ults,
             "def_ults_ready" : def_ults,
-            # Score context
             "score_won"      : score_won,
             "score_lost"     : score_lost,
             "score_diff"     : score_diff,
-            # Label
             "winner"         : round_winners.get(rnd, ""),
         })
 
-    # ── Pass 4: build live_round rows (Model B) ───────────────────────────
+    # -- Pass 4: live_round rows (Model B) ------------------------------------
     live_rows = []
-    # Track running combat state per round
-    round_att_alive  = {}
-    round_def_alive  = {}
-    round_att_kills  = {}
-    round_def_kills  = {}
-    round_spike_planted = {}
+    round_att_alive = {}
+    round_def_alive = {}
+    round_att_kills = {}
+    round_def_kills = {}
 
     for entry in kill_timeline:
-        rnd   = entry["round"]
-        kf    = entry["kf"]
-        snap  = entry["state_snap"]
-        kidx  = entry["kill_index"]
+        rnd  = entry["round"]
+        kf   = entry["kf"]
+        snap = entry["state_snap"]
+        kidx = entry["kill_index"]
 
         my_side = snap.get("team")
         if not my_side:
             continue
 
-        # Get pre-round snapshot for economy/ult baseline
         pre_snap = shopping_snaps.get(rnd)
         if not pre_snap:
             continue
@@ -274,15 +264,16 @@ def extract_from_file(filepath):
             continue
 
         att_money, def_money, economy_diff = economy_features(att_pre, def_pre)
-        att_ults, def_ults                  = ult_features(att_pre, def_pre)
-        score_won, score_lost, score_diff   = score_features(snap)
+        att_ults, def_ults                 = ult_features(att_pre, def_pre)
+        score_won, score_lost, score_diff  = score_features(snap)
 
-        # Update live alive/kill counts from kill_feed
+        # Determine if this kill was by the attacking team
         is_att_kill = (
             (my_side == "attack"  and kf.get("is_attacker_teammate")) or
             (my_side == "defense" and not kf.get("is_attacker_teammate"))
         )
 
+        # Initialise per-round combat counters on first kill
         if rnd not in round_att_alive:
             round_att_alive[rnd] = PLAYER_COUNT
             round_def_alive[rnd] = PLAYER_COUNT
@@ -300,10 +291,6 @@ def extract_from_file(filepath):
         def_alive  = round_def_alive[rnd]
         att_kills  = round_att_kills[rnd]
         def_kills  = round_def_kills[rnd]
-        alive_diff = att_alive - def_alive
-        kill_diff  = att_kills - def_kills
-
-        # Spike planted status at this kill moment
         spike_planted = 1 if round_spikes.get(rnd) and kidx > 1 else 0
 
         live_rows.append({
@@ -313,7 +300,6 @@ def extract_from_file(filepath):
             "kill_index"     : kidx,
             "map"            : snap.get("map", ""),
             "local_team_side": my_side,
-            # Pre-round context (fixed for the round)
             "att_money"      : att_money,
             "def_money"      : def_money,
             "economy_diff"   : economy_diff,
@@ -322,24 +308,23 @@ def extract_from_file(filepath):
             "score_won"      : score_won,
             "score_lost"     : score_lost,
             "score_diff"     : score_diff,
-            # Live combat state (updates each kill)
             "att_alive"      : att_alive,
             "def_alive"      : def_alive,
-            "alive_diff"     : alive_diff,
+            "alive_diff"     : att_alive - def_alive,
             "att_kills"      : att_kills,
             "def_kills"      : def_kills,
-            "kill_diff"      : kill_diff,
+            "kill_diff"      : att_kills - def_kills,
             "spike_planted"  : spike_planted,
-            # Label
             "winner"         : round_winners.get(rnd, ""),
         })
 
     return pre_rows, live_rows
 
 
-# ── CSV writer ───────────────────────────────────────────────────────────────
+# -- CSV writer ---------------------------------------------------------------
 
 def write_csv(rows, path, mode="w"):
+    """Write a list of dicts to a CSV file."""
     if not rows:
         return
     with open(path, mode, newline="") as f:
@@ -349,12 +334,20 @@ def write_csv(rows, path, mode="w"):
         writer.writerows(rows)
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
+# -- Entry point --------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("inputs", nargs="*", help="JSON files or directories (default: raw_matchs_data/)")
-    parser.add_argument("-o", "--output-dir", default=_DEFAULT_OUT, help="Output directory for CSVs")
+    parser = argparse.ArgumentParser(
+        description="Extract round features from Overwolf JSON match logs."
+    )
+    parser.add_argument(
+        "inputs", nargs="*",
+        help="JSON files or directories (default: raw_matchs_data/)"
+    )
+    parser.add_argument(
+        "-o", "--output-dir", default=_DEFAULT_OUT,
+        help="Output directory for CSVs"
+    )
     args = parser.parse_args()
 
     # Resolve input files
@@ -368,9 +361,6 @@ def main():
             ))
         elif p.is_file():
             paths.append(p)
-        else:
-            for g in glob.glob(inp):
-                paths.append(Path(g))
 
     if not paths:
         print("No JSON files found.")
@@ -378,8 +368,6 @@ def main():
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pre_path  = out_dir / "pre_round.csv"
-    live_path = out_dir / "live_round.csv"
 
     all_pre  = []
     all_live = []
@@ -391,10 +379,10 @@ def main():
             all_pre.extend(pre)
             all_live.extend(live)
         except Exception as e:
-            print(f"  {path.name}: ERROR — {e}")
+            print(f"  {path.name}: ERROR - {e}")
 
-    write_csv(all_pre,  pre_path)
-    write_csv(all_live, live_path)
+    write_csv(all_pre,  out_dir / "pre_round.csv")
+    write_csv(all_live, out_dir / "live_round.csv")
 
     labeled_pre  = sum(1 for r in all_pre  if r["winner"])
     labeled_live = sum(1 for r in all_live if r["winner"])
