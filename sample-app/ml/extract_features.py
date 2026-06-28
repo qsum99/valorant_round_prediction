@@ -147,7 +147,7 @@ def extract_from_file(filepath):
         pre_rows  - list of dicts (one per round)
         live_rows - list of dicts (one per kill event per round)
     """
-    with open(filepath) as f:
+    with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
 
     source = Path(filepath).name
@@ -327,7 +327,7 @@ def write_csv(rows, path, mode="w"):
     """Write a list of dicts to a CSV file."""
     if not rows:
         return
-    with open(path, mode, newline="") as f:
+    with open(path, mode, newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         if mode == "w":
             writer.writeheader()

@@ -85,7 +85,7 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
         if not rows:
             return
         header = not path.exists()
-        with open(path, "a" if path.exists() else "w", newline="") as f:
+        with open(path, "a" if path.exists() else "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             if header:
                 writer.writeheader()
@@ -94,7 +94,7 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
     def _print_stats(self):
         for label, path in [("pre_round", self.pre_path), ("live_round", self.live_path)]:
             if path.exists():
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     n = sum(1 for _ in f) - 1
                 print(f"  [{label}.csv total rows: {n}]")
 
@@ -104,7 +104,7 @@ def get_already_processed(output_dir):
     pre_path = Path(output_dir) / "pre_round.csv"
     processed = set()
     if pre_path.exists():
-        with open(pre_path) as f:
+        with open(pre_path, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 processed.add(row.get("source_file", ""))
