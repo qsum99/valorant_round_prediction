@@ -111,30 +111,38 @@ def score_features(snap):
 
 def build_round_winners(end_snapshots):
     """
-    Returns dict {round_number_str: 'allies'|'enemies'}
+    Returns dict {(match_id, round_number): 'allies'|'enemies'}
     Derived from score changes between consecutive end-phase snapshots.
+    Groups by match_id so score resets between matches are handled.
     """
-    winners = {}
-    prev_won = prev_lost = 0
-
+    # Group end snapshots by match_id to handle score resets
+    from collections import defaultdict
+    by_match = defaultdict(list)
     for snap in end_snapshots:
-        sc = parse_json(snap.get("score"))
-        if not sc:
-            continue
-        won  = sc.get("won",  0)
-        lost = sc.get("lost", 0)
-        rnd  = str(snap.get("round_number", ""))
+        mid = snap.get("match_id", "")
+        by_match[mid].append(snap)
 
-        if not rnd:
+    winners = {}
+    for mid, snaps in by_match.items():
+        prev_won = prev_lost = 0
+        for snap in snaps:
+            sc = parse_json(snap.get("score"))
+            if not sc:
+                continue
+            won  = sc.get("won",  0)
+            lost = sc.get("lost", 0)
+            rnd  = str(snap.get("round_number", ""))
+
+            if not rnd:
+                prev_won, prev_lost = won, lost
+                continue
+
+            if won > prev_won:
+                winners[(mid, rnd)] = "allies"
+            elif lost > prev_lost:
+                winners[(mid, rnd)] = "enemies"
+
             prev_won, prev_lost = won, lost
-            continue
-
-        if won > prev_won:
-            winners[rnd] = "allies"
-        elif lost > prev_lost:
-            winners[rnd] = "enemies"
-
-        prev_won, prev_lost = won, lost
 
     return winners
 
@@ -143,8 +151,9 @@ def build_round_winners(end_snapshots):
 
 def extract_from_file(filepath):
     """
+    Extracts all matches from a single JSON file (handles multiple matches).
     Returns:
-        pre_rows  - list of dicts (one per round)
+        pre_rows  - list of dicts (one per round across all matches)
         live_rows - list of dicts (one per kill event per round)
     """
     with open(filepath, encoding="utf-8") as f:
@@ -153,12 +162,13 @@ def extract_from_file(filepath):
     source = Path(filepath).name
 
     # -- Pass 1: build streaming state + collect snapshots --------------------
+    # All dicts keyed by (match_id, round_number) to support multiple matches
     state          = {}
-    shopping_snaps = {}   # round_number -> snap at shopping phase
-    end_snaps      = []   # snap at end phase (for winner detection)
-    round_spikes   = {}   # round_number -> True if spike was planted
-    kill_timeline  = []   # [{round, kill_index, kf, state_snap}]
-    kills_in_round = {}   # round -> count
+    shopping_snaps = {}   # (match_id, round_number) -> snap
+    end_snaps      = []   # list of snaps at end phase
+    round_spikes   = {}   # (match_id, round_number) -> True
+    kill_timeline  = []   # [{match_id, round, kill_index, kf, state_snap}]
+    kills_in_round = {}   # (match_id, round_number) -> count
 
     for item in data:
         if item["type"] == "info":
@@ -167,43 +177,48 @@ def extract_from_file(filepath):
                 if v is not None:
                     state[k] = v
 
+            mid = state.get("match_id", "")
             phase = mi.get("round_phase")
             if phase == "shopping":
                 rnd = state.get("round_number")
-                if rnd and rnd not in shopping_snaps:
-                    shopping_snaps[rnd] = dict(state)
+                key = (mid, rnd)
+                if rnd and key not in shopping_snaps:
+                    shopping_snaps[key] = dict(state)
             elif phase == "end":
                 end_snaps.append(dict(state))
             elif phase == "combat":
                 rnd = state.get("round_number")
-                if rnd and rnd not in kills_in_round:
-                    kills_in_round[rnd] = 0
+                key = (mid, rnd)
+                if rnd and key not in kills_in_round:
+                    kills_in_round[key] = 0
 
         elif item["type"] == "event":
             for ev in item.get("data", {}).get("events", []):
+                mid = state.get("match_id", "")
                 if ev["name"] == "planted_location":
                     rnd = state.get("round_number")
                     if rnd:
-                        round_spikes[rnd] = True
+                        round_spikes[(mid, rnd)] = True
 
                 elif ev["name"] == "kill_feed":
                     rnd = state.get("round_number")
+                    key = (mid, rnd)
                     if rnd and state.get("round_phase") == "combat":
-                        kills_in_round[rnd] = kills_in_round.get(rnd, 0) + 1
+                        kills_in_round[key] = kills_in_round.get(key, 0) + 1
                         kill_timeline.append({
+                            "match_id":   mid,
                             "round":      rnd,
-                            "kill_index": kills_in_round[rnd],
+                            "kill_index": kills_in_round[key],
                             "kf":         parse_json(ev["data"]) if isinstance(ev["data"], str) else ev["data"],
                             "state_snap": dict(state),
                         })
 
     # -- Pass 2: winner map from end snapshots --------------------------------
     round_winners = build_round_winners(end_snaps)
-    match_id = state.get("match_id", "")
 
     # -- Pass 3: pre_round rows (Model A) -------------------------------------
     pre_rows = []
-    for rnd, snap in shopping_snaps.items():
+    for (mid, rnd), snap in shopping_snaps.items():
         allies, enemies = parse_scoreboard(snap)
         if allies is None:
             continue
@@ -219,7 +234,7 @@ def extract_from_file(filepath):
 
         pre_rows.append({
             "source_file"    : source,
-            "match_id"       : match_id,
+            "match_id"       : mid,
             "round_number"   : rnd,
             "map"            : snap.get("map", ""),
             "local_team_side": my_side,
@@ -231,7 +246,7 @@ def extract_from_file(filepath):
             "score_won"      : score_won,
             "score_lost"     : score_lost,
             "score_diff"     : score_diff,
-            "winner"         : round_winners.get(rnd, ""),
+            "winner"         : round_winners.get((mid, rnd), ""),
         })
 
     # -- Pass 4: live_round rows (Model B) ------------------------------------
@@ -242,16 +257,18 @@ def extract_from_file(filepath):
     round_def_kills = {}
 
     for entry in kill_timeline:
+        mid  = entry["match_id"]
         rnd  = entry["round"]
         kf   = entry["kf"]
         snap = entry["state_snap"]
         kidx = entry["kill_index"]
+        key  = (mid, rnd)
 
         my_side = snap.get("team")
         if not my_side:
             continue
 
-        pre_snap = shopping_snaps.get(rnd)
+        pre_snap = shopping_snaps.get(key)
         if not pre_snap:
             continue
 
@@ -274,28 +291,28 @@ def extract_from_file(filepath):
         )
 
         # Initialise per-round combat counters on first kill
-        if rnd not in round_att_alive:
-            round_att_alive[rnd] = PLAYER_COUNT
-            round_def_alive[rnd] = PLAYER_COUNT
-            round_att_kills[rnd] = 0
-            round_def_kills[rnd] = 0
+        if key not in round_att_alive:
+            round_att_alive[key] = PLAYER_COUNT
+            round_def_alive[key] = PLAYER_COUNT
+            round_att_kills[key] = 0
+            round_def_kills[key] = 0
 
         if is_att_kill:
-            round_att_kills[rnd] += 1
-            round_def_alive[rnd] = max(0, round_def_alive[rnd] - 1)
+            round_att_kills[key] += 1
+            round_def_alive[key] = max(0, round_def_alive[key] - 1)
         else:
-            round_def_kills[rnd] += 1
-            round_att_alive[rnd] = max(0, round_att_alive[rnd] - 1)
+            round_def_kills[key] += 1
+            round_att_alive[key] = max(0, round_att_alive[key] - 1)
 
-        att_alive  = round_att_alive[rnd]
-        def_alive  = round_def_alive[rnd]
-        att_kills  = round_att_kills[rnd]
-        def_kills  = round_def_kills[rnd]
-        spike_planted = 1 if round_spikes.get(rnd) and kidx > 1 else 0
+        att_alive  = round_att_alive[key]
+        def_alive  = round_def_alive[key]
+        att_kills  = round_att_kills[key]
+        def_kills  = round_def_kills[key]
+        spike_planted = 1 if round_spikes.get(key) and kidx > 1 else 0
 
         live_rows.append({
             "source_file"    : source,
-            "match_id"       : match_id,
+            "match_id"       : mid,
             "round_number"   : rnd,
             "kill_index"     : kidx,
             "map"            : snap.get("map", ""),
@@ -315,7 +332,7 @@ def extract_from_file(filepath):
             "def_kills"      : def_kills,
             "kill_diff"      : att_kills - def_kills,
             "spike_planted"  : spike_planted,
-            "winner"         : round_winners.get(rnd, ""),
+            "winner"         : round_winners.get((mid, rnd), ""),
         })
 
     return pre_rows, live_rows
@@ -375,7 +392,8 @@ def main():
     for path in paths:
         try:
             pre, live = extract_from_file(path)
-            print(f"  {path.name}: {len(pre)} rounds, {len(live)} kill-events")
+            match_ids = set(r["match_id"] for r in pre)
+            print(f"  {path.name}: {len(match_ids)} match(es), {len(pre)} rounds, {len(live)} kill-events")
             all_pre.extend(pre)
             all_live.extend(live)
         except Exception as e:
