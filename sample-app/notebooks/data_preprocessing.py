@@ -181,7 +181,58 @@ def encode_categoricals(pre_df, live_df):
 
 
 # ------------------------------------------------------------------------------
-# Step 7: Drop ID Columns Only (Keep All Raw + Diff Features)
+# Step 7: Feature Engineering
+# ------------------------------------------------------------------------------
+
+# Economy thresholds (team total across 5 players)
+FULL_BUY_THRESHOLD = 19500   # ~3900 per player (Vandal/Phantom + full armor + abilities)
+ECO_THRESHOLD      = 10000   # ~2000 per player (pistol/eco round)
+
+def engineer_features(pre_df, live_df):
+    """Create derived features that add predictive signal.
+    
+    Common features (both datasets):
+        att_full_buy  - 1 if attackers can full buy
+        def_full_buy  - 1 if defenders can full buy
+        att_eco       - 1 if attackers are on eco
+        def_eco       - 1 if defenders are on eco
+        ult_adv       - attacker ult advantage (att_ults_ready - def_ults_ready)
+    
+    Live-round only:
+        alive_ratio   - fraction of alive players on attacker side (0.0 to 1.0)
+        att_wiping    - 1 if attackers eliminated all defenders
+        def_wiping    - 1 if defenders eliminated all attackers
+        kill_progress - fraction of total kills so far (0.0 to 1.0)
+    """
+    # -- Common features (pre-round + live-round) --
+    for df in [pre_df, live_df]:
+        df["att_full_buy"] = (df["att_money"] >= FULL_BUY_THRESHOLD).astype(int)
+        df["def_full_buy"] = (df["def_money"] >= FULL_BUY_THRESHOLD).astype(int)
+        df["att_eco"]      = (df["att_money"] < ECO_THRESHOLD).astype(int)
+        df["def_eco"]      = (df["def_money"] < ECO_THRESHOLD).astype(int)
+        df["ult_adv"]      = df["att_ults_ready"] - df["def_ults_ready"]
+
+    # -- Live-round only features --
+    total_alive = live_df["att_alive"] + live_df["def_alive"]
+    live_df["alive_ratio"]  = live_df["att_alive"] / total_alive.replace(0, 1)  # avoid div/0
+    live_df["att_wiping"]   = (live_df["def_alive"] == 0).astype(int)
+    live_df["def_wiping"]   = (live_df["att_alive"] == 0).astype(int)
+    live_df["kill_progress"] = (live_df["att_kills"] + live_df["def_kills"]) / 10.0  # max 10 kills in 5v5
+
+    new_common = ["att_full_buy", "def_full_buy", "att_eco", "def_eco", "ult_adv"]
+    new_live   = ["alive_ratio", "att_wiping", "def_wiping", "kill_progress"]
+
+    print(f"\nSTEP 7: Feature Engineering")
+    print(f"  Common features added: {new_common}")
+    print(f"  Live-round features added: {new_live}")
+    print(f"  Pre-round  total columns: {len(pre_df.columns)}")
+    print(f"  Live-round total columns: {len(live_df.columns)}")
+
+    return pre_df, live_df
+
+
+# ------------------------------------------------------------------------------
+# Step 8: Drop ID Columns Only (Keep All Raw + Diff Features)
 # ------------------------------------------------------------------------------
 
 def drop_columns(pre_df, live_df):
@@ -203,7 +254,7 @@ def drop_columns(pre_df, live_df):
     pre_features  = [c for c in pre_df.columns if c != TARGET]
     live_features = [c for c in live_df.columns if c != TARGET]
 
-    print(f"\nSTEP 7: Drop ID Columns (Keep All Feature Columns)")
+    print(f"\nSTEP 8: Drop ID Columns (Keep All Feature Columns)")
     print(f"  Dropped: {ID_COLUMNS + ['match_id']}")
     print(f"  Pre-round  features ({len(pre_features)}): {pre_features}")
     print(f"  Live-round features ({len(live_features)}): {live_features}")
@@ -212,7 +263,7 @@ def drop_columns(pre_df, live_df):
 
 
 # ------------------------------------------------------------------------------
-# Step 8: Train/Test Split (Grouped by Match ID)
+# Step 9: Train/Test Split (Grouped by Match ID)
 # ------------------------------------------------------------------------------
 
 def train_test_split_grouped(df, match_ids, dataset_name):
@@ -243,7 +294,7 @@ def train_test_split_grouped(df, match_ids, dataset_name):
 
 
 # ------------------------------------------------------------------------------
-# Step 9: Save Outputs
+# Step 10: Save Outputs
 # ------------------------------------------------------------------------------
 
 def save_outputs(pre_train, pre_test, live_train, live_test):
@@ -255,7 +306,7 @@ def save_outputs(pre_train, pre_test, live_train, live_test):
     live_train.to_csv(OUTPUT_DIR / "live_round_train.csv", index=False)
     live_test.to_csv(OUTPUT_DIR / "live_round_test.csv",   index=False)
 
-    print(f"\nSTEP 9: Save Outputs to {OUTPUT_DIR}/")
+    print(f"\nSTEP 10: Save Outputs to {OUTPUT_DIR}/")
     print(f"  pre_round_train.csv   ({len(pre_train):,} rows)")
     print(f"  pre_round_test.csv    ({len(pre_test):,} rows)")
     print(f"  live_round_train.csv  ({len(live_train):,} rows)")
@@ -321,17 +372,18 @@ def main():
     # Step 6: Encode categoricals (label encode, NO scaling)
     pre_df, live_df = encode_categoricals(pre_df, live_df)
 
-    # Step 7: Drop ID columns only (keep all raw + diff features)
+    # Step 7: Feature engineering
+    pre_df, live_df = engineer_features(pre_df, live_df)
+
+    # Step 8: Drop ID columns only (keep all raw + diff features)
     pre_df, live_df, pre_match_ids, live_match_ids = drop_columns(pre_df, live_df)
 
-    # Step 8: Train/Test split (grouped by match_id)
-    print(f"\nSTEP 8: Train/Test Split (Grouped by Match ID)")
+    # Step 9: Train/Test split (grouped by match_id)
+    print(f"\nSTEP 9: Train/Test Split (Grouped by Match ID)")
     pre_train, pre_test   = train_test_split_grouped(pre_df, pre_match_ids, "Pre-Round")
     live_train, live_test = train_test_split_grouped(live_df, live_match_ids, "Live-Round")
 
-    # No Step 9 for scaling -- XGBoost doesn't need it
-
-    # Step 9: Save
+    # Step 10: Save
     save_outputs(pre_train, pre_test, live_train, live_test)
 
     # Validate
