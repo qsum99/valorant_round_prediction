@@ -214,13 +214,11 @@ def engineer_features(pre_df, live_df):
 
     # -- Live-round only features --
     total_alive = live_df["att_alive"] + live_df["def_alive"]
-    live_df["alive_ratio"]  = live_df["att_alive"] / total_alive.replace(0, 1)  # avoid div/0
-    live_df["att_wiping"]   = (live_df["def_alive"] == 0).astype(int)
-    live_df["def_wiping"]   = (live_df["att_alive"] == 0).astype(int)
+    live_df["alive_ratio"]   = live_df["att_alive"] / total_alive.replace(0, 1)  # avoid div/0
     live_df["kill_progress"] = (live_df["att_kills"] + live_df["def_kills"]) / 10.0  # max 10 kills in 5v5
 
     new_common = ["att_full_buy", "def_full_buy", "att_eco", "def_eco", "ult_adv"]
-    new_live   = ["alive_ratio", "att_wiping", "def_wiping", "kill_progress"]
+    new_live   = ["alive_ratio", "kill_progress"]
 
     print(f"\nSTEP 7: Feature Engineering")
     print(f"  Common features added: {new_common}")
