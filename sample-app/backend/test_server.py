@@ -14,12 +14,18 @@ Usage:
 
 import asyncio
 import json
-import time
+import sys
 import websockets
 from pathlib import Path
 
+# Force UTF-8 for stdout on Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
 
-REPLAY_FILE = Path(__file__).parent.parent / "data" / "raw" / "match4.json"
+# The source match data to replay
+SOURCE_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "match4.json"
+# Where the replayed events are written (same dir so server picks it up)
+OUTPUT_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "_test_replay.json"
 WS_URL      = "ws://localhost:8765"
 EVENT_DELAY = 0.05   # seconds between events (0.05 = 20x speed)
 
@@ -33,25 +39,25 @@ async def listen():
             msg_type = data.get("type", "?")
 
             if msg_type == "pre_round":
-                print(f"\n🎯 Round {data['round']} | {data['map']} | Side: {data['side']} | "
+                print(f"\n[Pre-Round] Round {data['round']} | {data['map']} | Side: {data['side']} | "
                       f"Score: {data['score_won']}-{data['score_lost']}")
-                print(f"   Pre-round probability: {data['prob']}% allies win")
+                print(f"   Probability: {data['prob']}% allies win")
 
             elif msg_type == "live_update":
-                hs = " 💥HS" if data.get("headshot") else ""
-                spike = " 💣" if data.get("spike_planted") else ""
-                print(f"   Kill {data['kill_index']}: {data['attacker']} → {data['victim']}{hs}{spike} | "
+                hs = " (HS)" if data.get("headshot") else ""
+                spike = " [SPIKE]" if data.get("spike_planted") else ""
+                print(f"   Kill {data['kill_index']}: {data['attacker']} -> {data['victim']}{hs}{spike} | "
                       f"{data['att_alive']}v{data['def_alive']} | "
                       f"Live: {data['live_prob']}%")
 
             elif msg_type == "spike_planted":
-                print(f"   💣 Spike planted on site {data.get('site', '?')}")
+                print(f"   [SPIKE PLANTED] Site {data.get('site', '?')}")
 
             elif msg_type == "round_end":
-                print(f"\n  Round ended. Score: {data['score_won']}-{data['score_lost']}")
+                print(f"\n[Round End] Score: {data['score_won']}-{data['score_lost']}")
 
             elif msg_type == "match_end":
-                print(f"\n🏁 Match ended — {data.get('outcome', '?')}")
+                print(f"\n[Match End] {data.get('outcome', '?')}")
                 print(f"   Final score: {data['score_won']}-{data['score_lost']}")
 
             elif msg_type == "connected":
@@ -59,37 +65,41 @@ async def listen():
 
 
 async def replay():
-    """Replay match4.json by writing it to the watch directory."""
-    if not REPLAY_FILE.exists():
-        print(f"Replay file not found: {REPLAY_FILE}")
-        print("Make sure match4.json is in data/raw/")
+    """Replay match4.json by writing events incrementally to _test_replay.json."""
+    if not SOURCE_FILE.exists():
+        print(f"Replay file not found: {SOURCE_FILE}")
+        print("Make sure match4.json is in raw_matchs_data/")
         return
 
-    print(f"[Replay] Loading {REPLAY_FILE.name}...")
-    with open(REPLAY_FILE) as f:
+    print(f"[Replay] Loading {SOURCE_FILE.name}...")
+    with open(SOURCE_FILE, encoding="utf-8") as f:
         events = json.load(f)
 
-    out_path = REPLAY_FILE.parent / "_test_replay.json"
-    written  = []
+    if OUTPUT_FILE.exists():
+        OUTPUT_FILE.unlink()
 
+    await asyncio.sleep(2)
+
+    written = []
     print(f"[Replay] Replaying {len(events)} events at {1/EVENT_DELAY:.0f}x speed...")
     print("[Replay] Watch the listener terminal for predictions!\n")
 
     for i, event in enumerate(events):
         written.append(event)
-        # Write incrementally to simulate live overflowf output
-        with open(out_path, "w") as f:
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(written, f)
         await asyncio.sleep(EVENT_DELAY)
 
-    print(f"\n[Replay] Done. Wrote {len(written)} events to {out_path.name}")
+        if (i + 1) % 500 == 0:
+            print(f"[Replay] {i + 1}/{len(events)} events written...")
+
+    print(f"\n[Replay] Done. Wrote {len(written)} events to {OUTPUT_FILE.name}")
 
 
 async def main():
     print("Starting test — make sure backend/server.py is running first!\n")
     await asyncio.sleep(1)
 
-    # Run listener and replay concurrently
     await asyncio.gather(
         listen(),
         replay(),

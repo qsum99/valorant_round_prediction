@@ -1,0 +1,56 @@
+.score-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.sb-left  { display: flex; align-items: center; gap: 4px; }
+.sb-score { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; }
+.sb-divider { font-family: var(--font-display); font-size: 20px; color: var(--text-3); }
+
+.sb-center {
+  display: flex;
+  align-items: center;
+}
+.sb-map {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+}
+.sb-spike {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  animation: spikePulse 0.8s ease-in-out infinite;
+}
+@keyframes spikePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.sb-right { display: flex; align-items: center; gap: 8px; }
+.sb-side {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.sb-side.atk { background: var(--ally-dim);  color: var(--ally); }
+.sb-side.def { background: var(--enemy-dim); color: var(--enemy); }
+
+.sb-round {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-2);
+}

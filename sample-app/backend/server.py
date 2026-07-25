@@ -1,12 +1,12 @@
 """
 server.py  —  Valorant Win Predictor Backend
 =============================================
-Reads overflowf JSON log events in real-time, builds round state,
+Reads Overwolf JSON log events in real-time, builds round state,
 runs Model A (pre-round) and Model B (live) predictions, and pushes
 probability updates to the React overlay via WebSocket.
 
 Architecture:
-  overflowf → writes JSON log → server reads it → models predict → WebSocket → React overlay
+  Overwolf → writes JSON log → server reads it → models predict → WebSocket → React overlay
 
 Usage:
     python backend/server.py
@@ -22,7 +22,6 @@ import time
 import logging
 import websockets
 from pathlib import Path
-from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -36,13 +35,13 @@ logging.basicConfig(
 log = logging.getLogger("valo-backend")
 
 # ── Config ────────────────────────────────────────────────────────────────────
-WS_HOST        = "localhost"
+WS_HOST        = "127.0.0.1"
 WS_PORT        = 8765
 MODELS_DIR     = Path(__file__).parent.parent / "models"
-LOG_WATCH_DIR  = Path(__file__).parent.parent / "data" / "raw"
+LOG_WATCH_DIR  = Path(__file__).parent.parent / "raw_matchs_data"
 POLL_INTERVAL  = 0.5   # seconds between log file checks
 
-# ── Feature definitions (must match training exactly) ────────────────────────
+# ── Feature definitions (overridden by metadata.json if present) ─────────────
 A_FEATURES = [
     "att_money", "def_money", "economy_diff",
     "att_full_buy", "def_full_buy", "att_eco", "def_eco",
@@ -57,19 +56,20 @@ B_FEATURES = [
     "score_won", "score_lost", "score_diff",
     "att_alive", "def_alive", "alive_diff", "alive_ratio",
     "att_kills", "def_kills", "kill_diff",
-    "att_wiping", "def_wiping",
     "spike_planted", "kill_index", "kill_progress",
     "round_number", "local_team_side", "map",
 ]
 
 # ── Encodings (must match training exactly) ───────────────────────────────────
 MAP_ENCODING = {
-    "Ascent": 0, "Bonsai": 1, "Canyon": 2, "Foxtrot": 3,
-    "Jam": 4, "Juliett": 5, "Pitt": 6, "Plummet": 7, "Triad": 8,
+    "Ascent": 0, "Bonsai": 1, "Foxtrot": 2, "Jam": 3,
+    "Juliett": 4, "Plummet": 5, "Triad": 6,
 }
-SIDE_ENCODING = {"attack": 0, "defense": 1}
+SIDE_ENCODING = {"attack": 1, "defense": 0}
 MAX_TEAM_MONEY = 45_000
 PLAYER_COUNT   = 5
+FULL_BUY_THRESHOLD = 19500
+ECO_THRESHOLD      = 10000
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -79,6 +79,7 @@ PLAYER_COUNT   = 5
 def load_models():
     model_a_path = MODELS_DIR / "model_a.pkl"
     model_b_path = MODELS_DIR / "model_b.pkl"
+    meta_path    = MODELS_DIR / "metadata.json"
 
     if not model_a_path.exists() or not model_b_path.exists():
         raise FileNotFoundError(
@@ -91,6 +92,20 @@ def load_models():
     with open(model_b_path, "rb") as f:
         model_b = pickle.load(f)
 
+    # Load feature lists from metadata if available
+    if meta_path.exists():
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            global A_FEATURES, B_FEATURES
+            if "a_features" in meta:
+                A_FEATURES = meta["a_features"]
+            if "b_features" in meta:
+                B_FEATURES = meta["b_features"]
+            log.info(f"📋 Features loaded from metadata.json (A={len(A_FEATURES)}, B={len(B_FEATURES)})")
+        except Exception as e:
+            log.warning(f"Could not load metadata.json: {e}")
+
     log.info(f"✅ Models loaded from {MODELS_DIR}")
     return model_a, model_b
 
@@ -101,7 +116,7 @@ def load_models():
 
 class RoundState:
     """
-    Accumulates overflowf streaming events into a complete round state.
+    Accumulates Overwolf streaming events into a complete round state.
     Mirrors the same logic as extract_features.py but runs in real-time.
     """
 
@@ -109,46 +124,34 @@ class RoundState:
         self.reset()
 
     def reset(self):
-        # overflowf accumulated state
         self.raw: dict = {}
-
-        # Round-level state
         self.round_number:    int   = 0
         self.map_name:        str   = ""
-        self.local_side:      str   = ""   # "attack" or "defense"
-        self.phase:           str   = ""   # shopping / combat / end
+        self.local_side:      str   = ""
+        self.phase:           str   = ""
         self.score_won:       int   = 0
         self.score_lost:      int   = 0
-
-        # Pre-round snapshot (captured at shopping phase)
         self.pre_snap:        dict  = {}
-
-        # Live combat state
         self.att_alive:       int   = PLAYER_COUNT
         self.def_alive:       int   = PLAYER_COUNT
         self.att_kills:       int   = 0
         self.def_kills:       int   = 0
         self.kill_index:      int   = 0
         self.spike_planted:   bool  = False
-
-        # Predictions
         self.pre_round_prob:  float = 0.5
         self.live_prob:       float = 0.5
 
     def update_from_info(self, mi: dict):
-        """Merge a match_info partial update into accumulated state."""
         for k, v in mi.items():
             if v is not None:
                 self.raw[k] = v
 
-        # Extract key fields
         if "round_phase" in mi:
             self.phase = mi["round_phase"]
 
         if self.raw.get("round_number"):
             try:
-                self.raw_round = int(self.raw["round_number"])
-                self.round_number = self.raw_round
+                self.round_number = int(self.raw["round_number"])
             except (ValueError, TypeError):
                 pass
 
@@ -167,7 +170,6 @@ class RoundState:
                 pass
 
     def get_scoreboard(self):
-        """Parse 10-player scoreboard from accumulated raw state."""
         boards = []
         for i in range(10):
             raw = self.raw.get(f"scoreboard_{i}")
@@ -187,13 +189,12 @@ class RoundState:
             return None, None
 
         if self.local_side == "attack":
-            return allies, enemies   # att=allies, def=enemies
+            return allies, enemies
         elif self.local_side == "defense":
-            return enemies, allies   # att=enemies, def=allies
+            return enemies, allies
         return None, None
 
     def capture_pre_round_snapshot(self):
-        """Called when round_phase switches to 'shopping'."""
         att, dff = self.get_scoreboard()
         if att is None:
             return False
@@ -207,10 +208,10 @@ class RoundState:
             "att_money"      : att_money,
             "def_money"      : def_money,
             "economy_diff"   : att_money - def_money,
-            "att_full_buy"   : int(att_money >= 20_000),
-            "def_full_buy"   : int(def_money >= 20_000),
-            "att_eco"        : int(att_money < 5_000),
-            "def_eco"        : int(def_money < 5_000),
+            "att_full_buy"   : int(att_money >= FULL_BUY_THRESHOLD),
+            "def_full_buy"   : int(def_money >= FULL_BUY_THRESHOLD),
+            "att_eco"        : int(att_money < ECO_THRESHOLD),
+            "def_eco"        : int(def_money < ECO_THRESHOLD),
             "att_ults_ready" : att_ults,
             "def_ults_ready" : def_ults,
             "ult_adv"        : att_ults - def_ults,
@@ -218,31 +219,24 @@ class RoundState:
             "score_lost"     : self.score_lost,
             "score_diff"     : self.score_won - self.score_lost,
             "round_number"   : self.round_number,
-            "local_team_side": SIDE_ENCODING.get(self.local_side, 0),
+            "local_team_side": SIDE_ENCODING.get(self.local_side, 1 if self.local_side == "attack" else 0),
             "map"            : MAP_ENCODING.get(self.map_name, 0),
         }
 
-        # Reset live combat counters for new round
-        self.att_alive    = PLAYER_COUNT
-        self.def_alive    = PLAYER_COUNT
-        self.att_kills    = 0
-        self.def_kills    = 0
-        self.kill_index   = 0
+        self.att_alive     = PLAYER_COUNT
+        self.def_alive     = PLAYER_COUNT
+        self.att_kills     = 0
+        self.def_kills     = 0
+        self.kill_index    = 0
         self.spike_planted = False
-
         return True
 
     def on_kill(self, kf: dict) -> dict:
-        """
-        Called on each kill_feed event during combat.
-        Returns the live feature row for Model B.
-        """
         if not self.pre_snap:
             return {}
 
         self.kill_index += 1
 
-        # Determine if attacker is on attacking side
         is_att_kill = (
             (self.local_side == "attack"  and kf.get("is_attacker_teammate")) or
             (self.local_side == "defense" and not kf.get("is_attacker_teammate"))
@@ -255,9 +249,10 @@ class RoundState:
             self.def_kills += 1
             self.att_alive  = max(0, self.att_alive - 1)
 
-        alive_ratio = self.att_alive / (self.att_alive + self.def_alive + 1e-6)
+        total_alive = self.att_alive + self.def_alive
+        alive_ratio = self.att_alive / (total_alive if total_alive > 0 else 1)
+        alive_diff  = self.att_alive - self.def_alive
 
-        alive_diff = self.att_alive - self.def_alive
         return {
             **self.pre_snap,
             "att_alive"    : self.att_alive,
@@ -267,34 +262,13 @@ class RoundState:
             "att_kills"    : self.att_kills,
             "def_kills"    : self.def_kills,
             "kill_diff"    : self.att_kills - self.def_kills,
-            "att_wiping"   : int(alive_diff >= 2),
-            "def_wiping"   : int(alive_diff <= -2),
             "spike_planted": int(self.spike_planted),
             "kill_index"   : self.kill_index,
-            "kill_progress": round(self.kill_index / 9.0, 4),
+            "kill_progress": round(self.kill_index / 10.0, 4),
         }
 
     def on_spike_planted(self):
         self.spike_planted = True
-
-    def to_status_dict(self) -> dict:
-        """Serialise current state for the WebSocket message."""
-        return {
-            "round_number"  : self.round_number,
-            "map"           : self.map_name,
-            "side"          : self.local_side,
-            "phase"         : self.phase,
-            "score_won"     : self.score_won,
-            "score_lost"    : self.score_lost,
-            "att_alive"     : self.att_alive,
-            "def_alive"     : self.def_alive,
-            "att_kills"     : self.att_kills,
-            "def_kills"     : self.def_kills,
-            "kill_index"    : self.kill_index,
-            "spike_planted" : self.spike_planted,
-            "pre_round_prob": round(self.pre_round_prob * 100, 1),
-            "live_prob"     : round(self.live_prob * 100, 1),
-        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -332,66 +306,63 @@ class Predictor:
 class LogWatcher:
     """
     Watches the most recently modified JSON file in the watch directory.
-    Tails new lines as overflowf appends them during a live game.
+    Reads the full file each poll and returns the parsed JSON array.
     """
 
     def __init__(self, watch_dir: Path):
-        self.watch_dir   = watch_dir
+        self.watch_dir    = watch_dir
         self.current_file: Path | None = None
-        self.file_pos    = 0
-        self.buffer      = ""
+        self.last_mtime   = 0.0
 
     def get_latest_json(self) -> Path | None:
-        files = sorted(
-            self.watch_dir.glob("*.json"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True
-        )
+        try:
+            files = sorted(
+                self.watch_dir.glob("*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
+        except Exception:
+            return None
         return files[0] if files else None
 
-    def poll(self) -> list[dict]:
-        """Return list of new JSON events since last poll."""
+    def poll(self) -> tuple[list[dict], bool]:
         latest = self.get_latest_json()
         if not latest:
-            return []
+            return [], False
 
-        # New file appeared — reset position
-        if latest != self.current_file:
-            log.info(f"📂 New match file: {latest.name}")
-            self.current_file = latest
-            self.file_pos     = 0
-            self.buffer       = ""
-
-        events = []
         try:
-            with open(self.current_file, "r", encoding="utf-8") as f:
-                f.seek(self.file_pos)
-                new_data = f.read()
-                self.file_pos = f.tell()
+            mtime = latest.stat().st_mtime
+        except Exception:
+            return [], False
 
-            if not new_data.strip():
-                return []
+        if latest == self.current_file and mtime == self.last_mtime:
+            return [], False
 
-            # overflowf writes the file as a JSON array — parse incrementally
-            self.buffer += new_data
-            events = self._try_parse_array(self.buffer)
+        is_new_file = (latest != self.current_file)
+        if is_new_file:
+            log.info(f"📂 Watching match file: {latest.name}")
 
+        self.current_file = latest
+        self.last_mtime   = mtime
+
+        try:
+            with open(latest, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            if not content:
+                return [], is_new_file
+            events = self._try_parse_array(content)
+            return events, is_new_file
         except Exception as e:
-            log.debug(f"Poll error: {e}")
-
-        return events
+            log.debug(f"Poll read error: {e}")
+            return [], is_new_file
 
     def _try_parse_array(self, text: str) -> list[dict]:
-        """Try to parse as a JSON array, return empty list if incomplete."""
         text = text.strip()
         if not text.startswith("["):
             return []
         try:
-            # Try parsing the whole array
             return json.loads(text)
         except json.JSONDecodeError:
-            # Array not yet complete (game still running) — try partial parse
-            # Add a closing bracket to see how far we get
             try:
                 partial = text.rstrip(",").rstrip() + "]"
                 return json.loads(partial)
@@ -400,19 +371,39 @@ class LogWatcher:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# WebSocket server
+# WebSocket server & State global
 # ══════════════════════════════════════════════════════════════════════════════
 
 connected_clients: set = set()
+global_state = RoundState()
 
 async def ws_handler(websocket):
     connected_clients.add(websocket)
     log.info(f"🔗 Overlay connected ({len(connected_clients)} clients)")
     try:
-        # Send current state immediately on connect
-        await websocket.send(json.dumps({"type": "connected", "message": "Valorant predictor ready"}))
+        # Initial connection message
+        await websocket.send(json.dumps({
+            "type": "connected",
+            "message": "Valorant predictor ready"
+        }))
+
+        # If a match is already active, send current state snapshot immediately
+        if global_state.round_number >= 1 and global_state.map_name:
+            await websocket.send(json.dumps({
+                "type": "match_start"
+            }))
+            await websocket.send(json.dumps({
+                "type"      : "pre_round",
+                "round"     : global_state.round_number,
+                "map"       : global_state.map_name,
+                "side"      : global_state.local_side,
+                "score_won" : global_state.score_won,
+                "score_lost": global_state.score_lost,
+                "prob"      : round(global_state.pre_round_prob * 100, 1),
+            }))
+
         async for _ in websocket:
-            pass  # We don't expect messages from overlay, but keep connection alive
+            pass
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
@@ -421,14 +412,16 @@ async def ws_handler(websocket):
 
 
 async def broadcast(message: dict):
-    """Send a message to all connected overlay clients."""
     if not connected_clients:
         return
     payload = json.dumps(message)
-    await asyncio.gather(
-        *[client.send(payload) for client in connected_clients],
-        return_exceptions=True
-    )
+    dead = set()
+    for client in list(connected_clients):
+        try:
+            await client.send(payload)
+        except Exception:
+            dead.add(client)
+    connected_clients.difference_update(dead)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -436,13 +429,9 @@ async def broadcast(message: dict):
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def game_loop(predictor: Predictor, watcher: LogWatcher):
-    """
-    Main loop: poll log file → process new events → predict → broadcast.
-    Runs every POLL_INTERVAL seconds.
-    """
-    state       = RoundState()
-    last_phase  = ""
-    processed   = 0   # how many events we've processed so far
+    state      = global_state
+    last_phase = ""
+    processed  = 0
 
     log.info(f"👁  Watching: {watcher.watch_dir}")
     log.info(f"🌐 WebSocket: ws://{WS_HOST}:{WS_PORT}")
@@ -451,17 +440,23 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
     while True:
         await asyncio.sleep(POLL_INTERVAL)
 
-        events = watcher.poll()
+        events, is_new_file = watcher.poll()
+
+        if is_new_file:
+            state.reset()
+            processed  = 0
+            last_phase = ""
+
         if not events or len(events) <= processed:
             continue
 
         new_events = events[processed:]
-        processed  = len(events)
+        processed  = len(events)   # Mark all current events as processed
 
         for item in new_events:
             event_type = item.get("type")
 
-            # ── Info event: update round state ─────────────────────────────
+            # ── Info event ─────────────────────────────────────────────────
             if event_type == "info":
                 mi = item.get("data", {}).get("match_info", {})
                 if not mi:
@@ -473,13 +468,12 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                 if phase and phase != last_phase:
                     last_phase = phase
 
-                    # ── Shopping phase → pre-round prediction ───────────────
-                    if phase == "shopping" and state.round_number > 1:
+                    if phase == "shopping" and state.round_number >= 1:
                         ok = state.capture_pre_round_snapshot()
                         if ok and state.pre_snap:
                             prob = predictor.predict_pre_round(state.pre_snap)
                             state.pre_round_prob = prob
-                            state.live_prob      = prob   # live starts at pre-round baseline
+                            state.live_prob      = prob
 
                             log.info(
                                 f"🎯 Round {state.round_number} | {state.map_name} | "
@@ -495,7 +489,6 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                                 "prob"      : round(prob * 100, 1),
                             })
 
-                    # ── End phase → round over ─────────────────────────────
                     elif phase == "end":
                         await broadcast({
                             "type"      : "round_end",
@@ -504,20 +497,19 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                             "score_lost": state.score_lost,
                         })
 
-                    # ── Game end ───────────────────────────────────────────
                     elif phase == "game_end":
                         outcome = state.raw.get("match_outcome", "unknown")
                         log.info(f"🏁 Match ended — {outcome}")
                         await broadcast({
-                            "type"   : "match_end",
-                            "outcome": outcome,
+                            "type"      : "match_end",
+                            "outcome"   : outcome,
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                         })
                         state.reset()
-                        processed = 0
+                        last_phase = ""
 
-            # ── Event: kill_feed, spike ────────────────────────────────────
+            # ── Event: kill_feed, spike, match_start ───────────────────────
             elif event_type == "event":
                 for ev in item.get("data", {}).get("events", []):
                     name = ev.get("name")
@@ -542,9 +534,13 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         prob = predictor.predict_live(live_row)
                         state.live_prob = prob
 
-                        attacker = kf_data.get("attacker", "?")
-                        victim   = kf_data.get("victim", "?")
-                        headshot = kf_data.get("headshot", False)
+                        attacker    = kf_data.get("attacker", "?")
+                        victim      = kf_data.get("victim", "?")
+                        headshot    = kf_data.get("headshot", False)
+                        is_ally_kill = (
+                            (state.local_side == "attack"  and kf_data.get("is_attacker_teammate")) or
+                            (state.local_side == "defense" and not kf_data.get("is_attacker_teammate"))
+                        )
 
                         log.info(
                             f"  Kill {state.kill_index}: {attacker} → {victim}"
@@ -553,23 +549,24 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                             f"Live: {prob*100:.1f}%"
                         )
                         await broadcast({
-                            "type"          : "live_update",
-                            "round"         : state.round_number,
-                            "kill_index"    : state.kill_index,
-                            "attacker"      : attacker,
-                            "victim"        : victim,
-                            "headshot"      : headshot,
-                            "att_alive"     : state.att_alive,
-                            "def_alive"     : state.def_alive,
-                            "spike_planted" : state.spike_planted,
-                            "pre_round_prob": round(state.pre_round_prob * 100, 1),
-                            "live_prob"     : round(prob * 100, 1),
+                            "type"                : "live_update",
+                            "round"               : state.round_number,
+                            "kill_index"          : state.kill_index,
+                            "attacker"            : attacker,
+                            "victim"              : victim,
+                            "headshot"            : headshot,
+                            "att_alive"           : state.att_alive,
+                            "def_alive"           : state.def_alive,
+                            "spike_planted"       : state.spike_planted,
+                            "pre_round_prob"      : round(state.pre_round_prob * 100, 1),
+                            "live_prob"           : round(prob * 100, 1),
+                            "is_attacker_teammate": is_ally_kill,
                         })
 
                     elif name == "match_start":
                         log.info("🎮 Match started!")
                         state.reset()
-                        processed = 0
+                        last_phase = ""
                         await broadcast({"type": "match_start"})
 
 
@@ -582,20 +579,16 @@ async def main():
     log.info("  Valorant Win Predictor — Backend Server")
     log.info("=" * 50)
 
-    # Load models
     model_a, model_b = load_models()
     predictor = Predictor(model_a, model_b)
 
-    # Setup log watcher
     watch_dir = LOG_WATCH_DIR
     if not watch_dir.exists():
         log.warning(f"Watch directory not found: {watch_dir}")
-        log.warning("Creating it. Drop your .json files here.")
         watch_dir.mkdir(parents=True, exist_ok=True)
 
     watcher = LogWatcher(watch_dir)
 
-    # Start WebSocket server + game loop concurrently
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT):
         log.info(f"WebSocket server running on ws://{WS_HOST}:{WS_PORT}")
         await game_loop(predictor, watcher)
