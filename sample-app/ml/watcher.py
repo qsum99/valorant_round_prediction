@@ -48,10 +48,8 @@ class MatchHandler(FileSystemEventHandler if HAS_WATCHDOG else object):
         self.live_path  = self.output_dir / "live_round.csv"
 
     def on_created(self, event):
-        if event.is_directory:
-            return
         path = Path(event.src_path)
-        if path.suffix == ".json" and not path.name.startswith("."):
+        if path.suffix == ".json" and not path.name.startswith(".") and not path.name.startswith("_") and not path.name.lower().startswith("test"):
             time.sleep(2)  # wait for Overwolf to finish writing
             self._process(path)
 
@@ -125,7 +123,7 @@ def fallback_poll(raw_dir, output_dir, interval=10):
 
     while True:
         for path in sorted(raw_dir.glob("*.json")):
-            if not path.name.startswith(".") and path.name not in processed:
+            if not path.name.startswith(".") and not path.name.startswith("_") and not path.name.lower().startswith("test") and path.name not in processed:
                 handler._process(path)
         time.sleep(interval)
 

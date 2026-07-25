@@ -49,21 +49,22 @@ export default function App() {
         }))
         break
       case 'live_update': {
-        const prev = state.liveProb
         const next = msg.live_prob
-        const delta = Math.round(next - prev)
-        const kill = {
-          attacker: msg.attacker, victim: msg.victim, headshot: msg.headshot,
-          attAlive: msg.att_alive, defAlive: msg.def_alive,
-          prob: Math.round(next), probDelta: delta,
-          isAllyKill: msg.is_attacker_teammate ?? false,
-        }
         triggerFlash()
-        setState(s => ({
-          ...s, phase: 'combat', liveProb: next,
-          spikePlanted: msg.spike_planted || s.spikePlanted,
-          kills: [kill, ...s.kills].slice(0, MAX_KILLS),
-        }))
+        setState(s => {
+          const delta = Math.round(next - s.liveProb)
+          const kill = {
+            attacker: msg.attacker, victim: msg.victim, headshot: msg.headshot,
+            attAlive: msg.att_alive, defAlive: msg.def_alive,
+            prob: Math.round(next), probDelta: delta,
+            isAllyKill: msg.is_attacker_teammate ?? false,
+          }
+          return {
+            ...s, phase: 'combat', liveProb: next,
+            spikePlanted: msg.spike_planted || s.spikePlanted,
+            kills: [kill, ...s.kills].slice(0, MAX_KILLS),
+          }
+        })
         break
       }
       case 'spike_planted':
@@ -81,7 +82,7 @@ export default function App() {
         break
       default: break
     }
-  }, [state.liveProb])
+  }, [])
 
   useGameSocket(onMessage)
 

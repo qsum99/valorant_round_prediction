@@ -179,30 +179,31 @@ class RoundState:
                     boards.append(p)
                 except Exception:
                     pass
-        if len(boards) < 10:
-            return None, None
 
         allies  = [p for p in boards if p.get("teammate") is True]
         enemies = [p for p in boards if p.get("teammate") is False]
 
-        if len(allies) != PLAYER_COUNT or len(enemies) != PLAYER_COUNT:
-            return None, None
+        # Fill default fallback player data if scoreboard is partially populated in early rounds
+        default_money = 800 if self.round_number <= 1 else 3000
+        while len(allies) < PLAYER_COUNT:
+            allies.append({"money": default_money, "ult_max": 7, "ult_points": 0})
+        while len(enemies) < PLAYER_COUNT:
+            enemies.append({"money": default_money, "ult_max": 7, "ult_points": 0})
 
-        if self.local_side == "attack":
+        side = self.local_side if self.local_side in ("attack", "defense") else "attack"
+        if side == "attack":
             return allies, enemies
-        elif self.local_side == "defense":
+        else:
             return enemies, allies
-        return None, None
 
     def capture_pre_round_snapshot(self):
         att, dff = self.get_scoreboard()
-        if att is None:
-            return False
-
         att_money = min(sum(p.get("money", 0) for p in att), MAX_TEAM_MONEY)
         def_money = min(sum(p.get("money", 0) for p in dff), MAX_TEAM_MONEY)
         att_ults  = sum(1 for p in att if p.get("ult_max", 0) > 0 and p.get("ult_points", 0) >= p.get("ult_max", 1))
         def_ults  = sum(1 for p in dff if p.get("ult_max", 0) > 0 and p.get("ult_points", 0) >= p.get("ult_max", 1))
+
+        side_val = 1 if self.local_side == "attack" else (0 if self.local_side == "defense" else 1)
 
         self.pre_snap = {
             "att_money"      : att_money,
@@ -218,8 +219,8 @@ class RoundState:
             "score_won"      : self.score_won,
             "score_lost"     : self.score_lost,
             "score_diff"     : self.score_won - self.score_lost,
-            "round_number"   : self.round_number,
-            "local_team_side": SIDE_ENCODING.get(self.local_side, 1 if self.local_side == "attack" else 0),
+            "round_number"   : max(1, self.round_number),
+            "local_team_side": side_val,
             "map"            : MAP_ENCODING.get(self.map_name, 0),
         }
 
@@ -233,7 +234,7 @@ class RoundState:
 
     def on_kill(self, kf: dict) -> dict:
         if not self.pre_snap:
-            return {}
+            self.capture_pre_round_snapshot()
 
         self.kill_index += 1
 
@@ -305,25 +306,51 @@ class Predictor:
 
 class LogWatcher:
     """
-    Watches the most recently modified JSON file in the watch directory.
-    Reads the full file each poll and returns the parsed JSON array.
+    Watches the most recently modified JSON file in the watch directory
+    or standard Overwolf Documents log directory.
     """
 
     def __init__(self, watch_dir: Path):
         self.watch_dir    = watch_dir
         self.current_file: Path | None = None
         self.last_mtime   = 0.0
+        self.start_time   = time.time()
 
     def get_latest_json(self) -> Path | None:
+        candidates = []
+        
+        # Check standard Overwolf log locations in Documents (active match can be up to 30 mins old)
+        home = Path.home()
+        possible_doc_files = [
+            home / "OneDrive" / "Documents" / "valorant_game_events.json",
+            home / "Documents" / "valorant_game_events.json",
+            home / "OneDrive" / "Documents" / "valorant_round_data.json",
+            home / "Documents" / "valorant_round_data.json",
+        ]
+        now = time.time()
+        for p in possible_doc_files:
+            if p.exists():
+                try:
+                    # Modified within last 30 minutes = active match stream
+                    if p.stat().st_mtime >= (now - 1800):
+                        candidates.append(p)
+                except Exception:
+                    pass
+
+        # Check watch_dir (raw_matchs_data)
         try:
-            files = sorted(
-                self.watch_dir.glob("*.json"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True
-            )
+            for p in self.watch_dir.glob("*.json"):
+                if not p.name.startswith("_") and not p.name.lower().startswith("test"):
+                    if p.stat().st_mtime >= (now - 1800):
+                        candidates.append(p)
         except Exception:
+            pass
+
+        if not candidates:
             return None
-        return files[0] if files else None
+
+        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return candidates[0]
 
     def poll(self) -> tuple[list[dict], bool]:
         latest = self.get_latest_json()
@@ -388,15 +415,15 @@ async def ws_handler(websocket):
         }))
 
         # If a match is already active, send current state snapshot immediately
-        if global_state.round_number >= 1 and global_state.map_name:
+        if global_state.round_number >= 1 or global_state.map_name:
             await websocket.send(json.dumps({
                 "type": "match_start"
             }))
             await websocket.send(json.dumps({
                 "type"      : "pre_round",
-                "round"     : global_state.round_number,
+                "round"     : max(1, global_state.round_number),
                 "map"       : global_state.map_name,
-                "side"      : global_state.local_side,
+                "side"      : global_state.local_side or "attack",
                 "score_won" : global_state.score_won,
                 "score_lost": global_state.score_lost,
                 "prob"      : round(global_state.pre_round_prob * 100, 1),
@@ -468,31 +495,30 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                 if phase and phase != last_phase:
                     last_phase = phase
 
-                    if phase == "shopping" and state.round_number >= 1:
-                        ok = state.capture_pre_round_snapshot()
-                        if ok and state.pre_snap:
-                            prob = predictor.predict_pre_round(state.pre_snap)
-                            state.pre_round_prob = prob
-                            state.live_prob      = prob
+                    if phase in ("shopping", "start", "buy") or (phase == "combat" and not state.pre_snap):
+                        state.capture_pre_round_snapshot()
+                        prob = predictor.predict_pre_round(state.pre_snap)
+                        state.pre_round_prob = prob
+                        state.live_prob      = prob
 
-                            log.info(
-                                f"🎯 Round {state.round_number} | {state.map_name} | "
-                                f"Pre-round: {prob*100:.1f}% allies"
-                            )
-                            await broadcast({
-                                "type"      : "pre_round",
-                                "round"     : state.round_number,
-                                "map"       : state.map_name,
-                                "side"      : state.local_side,
-                                "score_won" : state.score_won,
-                                "score_lost": state.score_lost,
-                                "prob"      : round(prob * 100, 1),
-                            })
+                        log.info(
+                            f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
+                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost})"
+                        )
+                        await broadcast({
+                            "type"      : "pre_round",
+                            "round"     : max(1, state.round_number),
+                            "map"       : state.map_name,
+                            "side"      : state.local_side or "attack",
+                            "score_won" : state.score_won,
+                            "score_lost": state.score_lost,
+                            "prob"      : round(prob * 100, 1),
+                        })
 
                     elif phase == "end":
                         await broadcast({
                             "type"      : "round_end",
-                            "round"     : state.round_number,
+                            "round"     : max(1, state.round_number),
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                         })
@@ -519,7 +545,10 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         log.info(f"💣 Spike planted on {ev.get('data', '?')}")
                         await broadcast({"type": "spike_planted", "site": ev.get("data", "")})
 
-                    elif name == "kill_feed" and state.phase == "combat" and state.pre_snap:
+                    elif name == "kill_feed":
+                        if not state.pre_snap:
+                            state.capture_pre_round_snapshot()
+
                         kf_data = ev.get("data", {})
                         if isinstance(kf_data, str):
                             try:
@@ -550,7 +579,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         )
                         await broadcast({
                             "type"                : "live_update",
-                            "round"               : state.round_number,
+                            "round"               : max(1, state.round_number),
                             "kill_index"          : state.kill_index,
                             "attacker"            : attacker,
                             "victim"              : victim,
