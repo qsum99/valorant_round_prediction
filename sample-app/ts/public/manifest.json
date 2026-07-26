@@ -2,12 +2,12 @@
   "manifest_version": 1,
   "type": "WebApp",
   "meta": {
-    "name": "Sample App",
-    "author": "Overwolf",
-    "version": "3.0.3",
+    "name": "Valorant Win Predictor",
+    "author": "Antigravity AI",
+    "version": "3.0.0",
     "minimum-overwolf-version": "0.160.0",
-    "description": "An example app for developers new to Overwolf",
-    "dock_button_title": "Sample - TS",
+    "description": "AI Real-time Win Probability Predictor for Valorant",
+    "dock_button_title": "Win Predictor",
     "icon": "icons/IconMouseOver.png",
     "icon_gray": "icons/IconMouseNormal.png",
     "launcher_icon": "icons/desktop-icon.ico",
@@ -71,12 +71,12 @@
         "transparent": true,
         "override_on_update": true,
         "size": {
-          "width": 1212,
-          "height": 699
+          "width": 1920,
+          "height": 1080
         },
         "min_size": {
-          "width": 1212,
-          "height": 699
+          "width": 800,
+          "height": 600
         }
       }
     },

@@ -256,6 +256,7 @@ class RoundState:
 
         return {
             **self.pre_snap,
+            "pre_round_prob": self.pre_round_prob,
             "att_alive"    : self.att_alive,
             "def_alive"    : self.def_alive,
             "alive_diff"   : alive_diff,
@@ -292,9 +293,36 @@ class Predictor:
 
     def predict_live(self, live_row: dict) -> float:
         try:
+            att_alive  = int(live_row.get("att_alive", 5))
+            def_alive  = int(live_row.get("def_alive", 5))
+            local_side = int(live_row.get("local_team_side", 1))
+
+            ally_alive  = att_alive if local_side == 1 else def_alive
+            enemy_alive = def_alive if local_side == 1 else att_alive
+
+            # Absolute game constraints
+            if ally_alive == 0:
+                return 0.0
+            if enemy_alive == 0:
+                return 1.0
+
+            # Base prediction from Model B
             x = pd.DataFrame([live_row])[B_FEATURES].astype(float)
-            prob = self.model_b.predict_proba(x)[0][1]
-            return float(prob)
+            mb_prob = float(self.model_b.predict_proba(x)[0][1])
+
+            # Dynamic live manpower shift based on active player difference
+            alive_diff = ally_alive - enemy_alive
+            shift = alive_diff * 0.18
+            if live_row.get("spike_planted", 0) == 1:
+                shift += (0.10 if local_side == 1 else -0.10)
+
+            # Anchor with pre-round baseline
+            pre_prob = float(live_row.get("pre_round_prob", mb_prob))
+            combined = pre_prob + shift
+
+            # Blend 40% Model B + 60% dynamic combat shift
+            final_prob = 0.4 * mb_prob + 0.6 * combined
+            return max(0.01, min(0.99, float(final_prob)))
         except Exception as e:
             log.warning(f"Model B prediction failed: {e}")
             return 0.5
@@ -603,6 +631,13 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
+def process_request(connection, request):
+    conn = request.headers.get("Connection", "")
+    if "Upgrade" in conn or "upgrade" in conn:
+        request.headers["Connection"] = "Upgrade"
+    return None
+
+
 async def main():
     log.info("=" * 50)
     log.info("  Valorant Win Predictor — Backend Server")
@@ -618,7 +653,7 @@ async def main():
 
     watcher = LogWatcher(watch_dir)
 
-    async with websockets.serve(ws_handler, WS_HOST, WS_PORT):
+    async with websockets.serve(ws_handler, WS_HOST, WS_PORT, process_request=process_request):
         log.info(f"WebSocket server running on ws://{WS_HOST}:{WS_PORT}")
         await game_loop(predictor, watcher)
 
