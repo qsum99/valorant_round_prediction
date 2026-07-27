@@ -41,6 +41,19 @@ class InGame extends AppWindow {
   }
 
   public async run() {
+    try {
+      const inGameState = await this.getWindowState();
+      if (inGameState && (inGameState as any).window_id) {
+        (overwolf.windows as any).setWindowFlags(
+          (inGameState as any).window_id,
+          ["InputPassThrough"],
+          (res: any) => console.log("InputPassThrough set:", res)
+        );
+      }
+    } catch (e) {
+      console.warn("Could not set InputPassThrough flag:", e);
+    }
+
     const gameClassId = await this.getCurrentGameClassId();
     const gameFeatures = kGamesFeatures.get(gameClassId);
 
