@@ -3,7 +3,7 @@
   "type": "WebApp",
   "meta": {
     "name": "Valorant Win Predictor",
-    "author": "Antigravity AI",
+    "author": "Someshwar",
     "version": "3.0.0",
     "minimum-overwolf-version": "0.160.0",
     "description": "AI Real-time Win Probability Predictor for Valorant",
