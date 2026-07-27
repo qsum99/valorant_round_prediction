@@ -10,15 +10,12 @@ import { kHotkeys, kWindowNames, kGamesFeatures } from "../consts";
 import WindowState = overwolf.windows.WindowStateEx;
 
 // The window displayed in-game while a game is running.
-// It listens to all info events and to the game events listed in the consts.ts file
-// and writes them to the relevant log using <pre> tags.
-// The window also sets up Ctrl+F as the minimize/restore hotkey.
-// Like the background window, it also implements the Singleton design pattern.
+// Sets up Ctrl+F as the minimize/restore hotkey.
 class InGame extends AppWindow {
   private static _instance: InGame;
   private _gameEventsListener: OWGamesEvents;
-  private _eventsLog: HTMLElement;
-  private _infoLog: HTMLElement;
+  private _eventsLog: HTMLElement | null;
+  private _infoLog: HTMLElement | null;
   private _logBuffer: any[] = [];
   private _logFilePath: string;
 
@@ -45,7 +42,6 @@ class InGame extends AppWindow {
 
   public async run() {
     const gameClassId = await this.getCurrentGameClassId();
-
     const gameFeatures = kGamesFeatures.get(gameClassId);
 
     if (gameFeatures && gameFeatures.length) {
@@ -58,8 +54,6 @@ class InGame extends AppWindow {
       );
 
       this._gameEventsListener.start();
-
-      // Force an immediate save to verify file creation works
       this.saveLog({ type: 'system', message: 'Session started', timestamp: Date.now() });
     }
   }
@@ -69,7 +63,6 @@ class InGame extends AppWindow {
     this.saveLog({ type: 'info', data: info });
   }
 
-  // Special events will be highlighted in the event log
   private onNewEvents(e) {
     const shouldHighlight = e.events.some(event => {
       switch (event.name) {
@@ -83,19 +76,24 @@ class InGame extends AppWindow {
         case 'match_end':
           return true;
       }
-
-      return false
+      return false;
     });
     this.logLine(this._eventsLog, e, shouldHighlight);
     this.saveLog({ type: 'event', data: e });
   }
 
-  // Displays the toggle minimize/restore hotkey in the window header
+  // Displays the toggle minimize/restore hotkey in the window header if element exists
   private async setToggleHotkeyText() {
-    const gameClassId = await this.getCurrentGameClassId();
-    const hotkeyText = await OWHotkeys.getHotkeyText(kHotkeys.toggle, gameClassId);
-    const hotkeyElem = document.getElementById('hotkey');
-    hotkeyElem.textContent = hotkeyText;
+    try {
+      const gameClassId = await this.getCurrentGameClassId();
+      const hotkeyText = await OWHotkeys.getHotkeyText(kHotkeys.toggle, gameClassId);
+      const hotkeyElem = document.getElementById('hotkey');
+      if (hotkeyElem) {
+        hotkeyElem.textContent = hotkeyText;
+      }
+    } catch (e) {
+      console.warn("Could not set hotkey text:", e);
+    }
   }
 
   // Sets toggleInGameWindow as the behavior for the Ctrl+F hotkey
@@ -104,22 +102,25 @@ class InGame extends AppWindow {
       hotkeyResult: overwolf.settings.hotkeys.OnPressedEvent
     ): Promise<void> => {
       console.log(`pressed hotkey for ${hotkeyResult.name}`);
-      const inGameState = await this.getWindowState();
+      try {
+        const inGameState = await this.getWindowState();
+        const stateStr = (inGameState as any).window_state_ex || (inGameState as any).window_state;
 
-      if (inGameState.window_state === WindowState.NORMAL ||
-        inGameState.window_state === WindowState.MAXIMIZED) {
-        this.currWindow.minimize();
-      } else if (inGameState.window_state === WindowState.MINIMIZED ||
-        inGameState.window_state === WindowState.CLOSED) {
-        this.currWindow.restore();
+        if (stateStr === WindowState.NORMAL || stateStr === WindowState.MAXIMIZED) {
+          this.currWindow.minimize();
+        } else {
+          this.currWindow.restore();
+        }
+      } catch (e) {
+        console.error("Error toggling in-game window:", e);
       }
-    }
+    };
 
     OWHotkeys.onHotkeyDown(kHotkeys.toggle, toggleInGameWindow);
   }
 
-  // Appends a new line to the specified log
-  private logLine(log: HTMLElement, data, highlight) {
+  private logLine(logElem: HTMLElement | null, data: any, highlight: boolean) {
+    if (!logElem) return;
     const line = document.createElement('pre');
     line.textContent = JSON.stringify(data);
 
@@ -127,20 +128,18 @@ class InGame extends AppWindow {
       line.className = 'highlight';
     }
 
-    // Check if scroll is near bottom
     const shouldAutoScroll =
-      log.scrollTop + log.offsetHeight >= log.scrollHeight - 10;
+      logElem.scrollTop + logElem.offsetHeight >= logElem.scrollHeight - 10;
 
-    log.appendChild(line);
+    logElem.appendChild(line);
 
     if (shouldAutoScroll) {
-      log.scrollTop = log.scrollHeight;
+      logElem.scrollTop = logElem.scrollHeight;
     }
   }
 
   private async getCurrentGameClassId(): Promise<number | null> {
     const info = await OWGames.getRunningGameInfo();
-
     return (info && info.isRunning && info.classId) ? info.classId : null;
   }
 

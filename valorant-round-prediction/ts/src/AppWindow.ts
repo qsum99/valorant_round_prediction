@@ -1,33 +1,34 @@
 import { OWWindow } from "@overwolf/overwolf-api-ts";
 
 // A base class for the app's foreground windows.
-// Sets the modal and drag behaviors, which are shared accross the desktop and in-game windows.
+// Sets the modal and drag behaviors, which are shared across desktop and in-game windows.
 export class AppWindow {
   protected currWindow: OWWindow;
   protected mainWindow: OWWindow;
   protected maximized: boolean = false;
 
-  constructor(windowName) {
+  constructor(windowName: string) {
     this.mainWindow = new OWWindow('background');
     this.currWindow = new OWWindow(windowName);
 
     const closeButton = document.getElementById('closeButton');
     const maximizeButton = document.getElementById('maximizeButton');
     const minimizeButton = document.getElementById('minimizeButton');
-
     const header = document.getElementById('header');
 
-    this.setDrag(header);
+    if (header) {
+      this.setDrag(header);
+    }
 
-    closeButton.addEventListener('click', () => {
+    closeButton?.addEventListener('click', () => {
       this.mainWindow.close();
     });
 
-    minimizeButton.addEventListener('click', () => {
+    minimizeButton?.addEventListener('click', () => {
       this.currWindow.minimize();
     });
 
-    maximizeButton.addEventListener('click', () => {
+    maximizeButton?.addEventListener('click', () => {
       if (!this.maximized) {
         this.currWindow.maximize();
       } else {
@@ -42,7 +43,9 @@ export class AppWindow {
     return await this.currWindow.getWindowState();
   }
 
-  private async setDrag(elem) {
-    this.currWindow.dragMove(elem);
+  private async setDrag(elem: HTMLElement) {
+    if (elem) {
+      this.currWindow.dragMove(elem);
+    }
   }
 }
