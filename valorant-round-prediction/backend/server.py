@@ -198,10 +198,10 @@ class RoundState:
 
     def capture_pre_round_snapshot(self):
         att, dff = self.get_scoreboard()
-        att_money = min(sum(p.get("money", 0) for p in att), MAX_TEAM_MONEY)
-        def_money = min(sum(p.get("money", 0) for p in dff), MAX_TEAM_MONEY)
-        att_ults  = sum(1 for p in att if p.get("ult_max", 0) > 0 and p.get("ult_points", 0) >= p.get("ult_max", 1))
-        def_ults  = sum(1 for p in dff if p.get("ult_max", 0) > 0 and p.get("ult_points", 0) >= p.get("ult_max", 1))
+        att_money = min(sum((p.get("money") or 0) for p in att), MAX_TEAM_MONEY)
+        def_money = min(sum((p.get("money") or 0) for p in dff), MAX_TEAM_MONEY)
+        att_ults  = sum(1 for p in att if (p.get("ult_max") or 0) > 0 and (p.get("ult_points") or 0) >= (p.get("ult_max") or 1))
+        def_ults  = sum(1 for p in dff if (p.get("ult_max") or 0) > 0 and (p.get("ult_points") or 0) >= (p.get("ult_max") or 1))
 
         side_val = 1 if self.local_side == "attack" else (0 if self.local_side == "defense" else 1)
 
