@@ -112,8 +112,8 @@ class BackgroundController {
       if ((overwolf.utils as any) && (overwolf.utils as any).openProcess) {
         (overwolf.utils as any).openProcess(
           {
-            path: 'cmd.exe',
-            args: '/c start /min python "C:\\valorant project\\valorant-round-prediction\\backend\\server.py"',
+            path: 'C:\\Windows\\System32\\wscript.exe',
+            args: '"C:\\valorant project\\valorant-round-prediction\\start_silent.vbs"',
             flags: 0
           },
           (res: any) => {
