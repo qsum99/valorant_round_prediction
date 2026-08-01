@@ -75,8 +75,8 @@ def att_def(allies, enemies, my_side):
 
 def economy_features(att, dff):
     """Return (att_money, def_money, economy_diff)."""
-    att_money = min(sum((p.get("money") or 0) for p in att), MAX_TEAM_MONEY)
-    def_money = min(sum((p.get("money") or 0) for p in dff), MAX_TEAM_MONEY)
+    att_money = min(sum(p.get("money", 0) for p in att), MAX_TEAM_MONEY)
+    def_money = min(sum(p.get("money", 0) for p in dff), MAX_TEAM_MONEY)
     return att_money, def_money, att_money - def_money
 
 
@@ -90,9 +90,8 @@ def alive_features(att, dff):
 def ult_features(att, dff):
     """Return (att_ults_ready, def_ults_ready)."""
     def ult_ready(p):
-        mx = p.get("ult_max") or 0
-        pts = p.get("ult_points") or 0
-        return mx > 0 and pts >= mx
+        mx = p.get("ult_max", 0)
+        return mx > 0 and p.get("ult_points", 0) >= mx
 
     return (
         sum(1 for p in att if ult_ready(p)),
@@ -103,8 +102,8 @@ def ult_features(att, dff):
 def score_features(snap):
     """Return (score_won, score_lost, score_diff)."""
     sc = parse_json(snap.get("score"))
-    won  = (sc.get("won") or 0) if sc else 0
-    lost = (sc.get("lost") or 0) if sc else 0
+    won  = sc.get("won",  0) if sc else 0
+    lost = sc.get("lost", 0) if sc else 0
     return won, lost, won - lost
 
 
