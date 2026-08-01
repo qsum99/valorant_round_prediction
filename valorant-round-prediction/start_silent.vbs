@@ -1,4 +1,5 @@
 Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "C:\valorant project\valorant-round-prediction"
 
 Dim pyPath, serverPath
 pyPath = "C:\Users\Someshwar Kumbar\AppData\Local\Programs\Python\Python314\python.exe"
