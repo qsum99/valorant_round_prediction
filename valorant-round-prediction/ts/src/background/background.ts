@@ -74,7 +74,6 @@ class BackgroundController {
   // When running the app, start listening to games' status and decide which window should
   // be launched first, based on whether a supported game is currently running
   public async run() {
-    this.ensureBackendRunning();
     this._gameListener.start();
 
     const currWindowName = (await this.isSupportedGameRunning())
@@ -88,41 +87,6 @@ class BackgroundController {
       if (info && info.isRunning) {
         this.startDataCollection(info.classId);
       }
-    }
-  }
-
-  private ensureBackendRunning() {
-    try {
-      const socket = new WebSocket('ws://127.0.0.1:8765');
-      socket.onopen = () => {
-        console.log('[Background] Backend server is running.');
-        socket.close();
-      };
-      socket.onerror = () => {
-        console.log('[Background] Backend server not detected. Auto-launching python backend/server.py...');
-        this.launchBackendProcess();
-      };
-    } catch (e) {
-      this.launchBackendProcess();
-    }
-  }
-
-  private launchBackendProcess() {
-    try {
-      if ((overwolf.utils as any) && (overwolf.utils as any).openProcess) {
-        (overwolf.utils as any).openProcess(
-          {
-            path: 'C:\\Users\\Someshwar Kumbar\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe',
-            args: '"C:\\valorant project\\valorant-round-prediction\\backend\\server.py"',
-            flags: 0
-          },
-          (res: any) => {
-            console.log('[Background] openProcess result:', res);
-          }
-        );
-      }
-    } catch (err) {
-      console.error('[Background] Failed to auto-launch backend:', err);
     }
   }
 

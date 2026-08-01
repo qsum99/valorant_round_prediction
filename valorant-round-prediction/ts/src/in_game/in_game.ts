@@ -1,6 +1,5 @@
 import {
   OWGames,
-  OWGameListener,
   OWGamesEvents,
   OWHotkeys
 } from "@overwolf/overwolf-api-ts";
@@ -15,7 +14,6 @@ import WindowState = overwolf.windows.WindowStateEx;
 class InGame extends AppWindow {
   private static _instance: InGame;
   private _gameEventsListener: OWGamesEvents;
-  private _gameListener: OWGameListener;
   private _eventsLog: HTMLElement | null;
   private _infoLog: HTMLElement | null;
   private _logBuffer: any[] = [];
@@ -56,34 +54,10 @@ class InGame extends AppWindow {
       console.warn("Could not set InputPassThrough flag:", e);
     }
 
-    this.initGameEventsListener();
-  }
-
-  private async initGameEventsListener() {
     const gameClassId = await this.getCurrentGameClassId();
-    if (gameClassId && kGamesFeatures.has(gameClassId)) {
-      this.startGameEvents(gameClassId);
-    }
+    const gameFeatures = kGamesFeatures.get(gameClassId);
 
-    this._gameListener = new OWGameListener({
-      onGameStarted: (info) => {
-        if (info && info.classId && kGamesFeatures.has(info.classId)) {
-          this.startGameEvents(info.classId);
-        }
-      },
-      onGameEnded: () => {
-        this.stopGameEvents();
-      }
-    });
-    this._gameListener.start();
-  }
-
-  private startGameEvents(classId: number) {
-    if (this._gameEventsListener) return;
-
-    const gameFeatures = kGamesFeatures.get(classId);
     if (gameFeatures && gameFeatures.length) {
-      console.log("Starting OWGamesEvents listener for classId:", classId);
       this._gameEventsListener = new OWGamesEvents(
         {
           onInfoUpdates: this.onInfoUpdates.bind(this),
@@ -91,16 +65,9 @@ class InGame extends AppWindow {
         },
         gameFeatures
       );
+
       this._gameEventsListener.start();
       this.saveLog({ type: 'system', message: 'Session started', timestamp: Date.now() });
-    }
-  }
-
-  private stopGameEvents() {
-    if (this._gameEventsListener) {
-      console.log("Stopping OWGamesEvents listener");
-      this._gameEventsListener.stop();
-      this._gameEventsListener = null;
     }
   }
 

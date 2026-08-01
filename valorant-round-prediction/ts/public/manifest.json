@@ -16,8 +16,7 @@
   "permissions": [
     "Hotkeys",
     "GameInfo",
-    "FileSystem",
-    "ProcessManager"
+    "FileSystem"
   ],
   "data": {
     "start_window": "background",
