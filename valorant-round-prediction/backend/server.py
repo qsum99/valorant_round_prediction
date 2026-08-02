@@ -159,7 +159,13 @@ class RoundState:
             self.map_name = self.raw["map"]
 
         if self.raw.get("team"):
-            self.local_side = self.raw["team"]
+            val = str(self.raw["team"]).lower()
+            if "def" in val or "blue" in val:
+                self.local_side = "defense"
+            elif "att" in val or "red" in val:
+                self.local_side = "attack"
+            else:
+                self.local_side = val
 
         if self.raw.get("score"):
             try:
@@ -285,8 +291,10 @@ class Predictor:
     def predict_pre_round(self, snap: dict) -> float:
         try:
             x = pd.DataFrame([snap])[A_FEATURES].astype(float)
-            prob = self.model_a.predict_proba(x)[0][1]
-            return float(prob)
+            att_prob = float(self.model_a.predict_proba(x)[0][1])
+            local_side = int(snap.get("local_team_side", 1))
+            ally_prob = att_prob if local_side == 1 else (1.0 - att_prob)
+            return max(0.01, min(0.99, float(ally_prob)))
         except Exception as e:
             log.warning(f"Model A prediction failed: {e}")
             return 0.5
@@ -306,22 +314,25 @@ class Predictor:
             if enemy_alive == 0:
                 return 1.0
 
-            # Base prediction from Model B
+            # Base prediction from Model B (predicts Attacker Win Probability)
             x = pd.DataFrame([live_row])[B_FEATURES].astype(float)
-            mb_prob = float(self.model_b.predict_proba(x)[0][1])
+            att_mb_prob = float(self.model_b.predict_proba(x)[0][1])
 
-            # Dynamic live manpower shift based on active player difference
+            # Convert Model B prediction to Ally Win Probability
+            ally_mb_prob = att_mb_prob if local_side == 1 else (1.0 - att_mb_prob)
+
+            # Dynamic live manpower shift based on active player difference (Ally vs Enemy)
             alive_diff = ally_alive - enemy_alive
             shift = alive_diff * 0.18
             if live_row.get("spike_planted", 0) == 1:
                 shift += (0.10 if local_side == 1 else -0.10)
 
             # Anchor with pre-round baseline
-            pre_prob = float(live_row.get("pre_round_prob", mb_prob))
+            pre_prob = float(live_row.get("pre_round_prob", ally_mb_prob))
             combined = pre_prob + shift
 
             # Blend 40% Model B + 60% dynamic combat shift
-            final_prob = 0.4 * mb_prob + 0.6 * combined
+            final_prob = 0.4 * ally_mb_prob + 0.6 * combined
             return max(0.01, min(0.99, float(final_prob)))
         except Exception as e:
             log.warning(f"Model B prediction failed: {e}")
