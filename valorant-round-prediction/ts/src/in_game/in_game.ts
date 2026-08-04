@@ -189,11 +189,26 @@ class InGame extends AppWindow {
     return (info && info.isRunning && info.classId) ? info.classId : null;
   }
 
+  private _isWriting: boolean = false;
+  private _needsWrite: boolean = false;
+
   private saveLog(entry: any) {
     this._logBuffer.push({
       timestamp: Date.now(),
       ...entry
     });
+
+    this.scheduleWrite();
+  }
+
+  private scheduleWrite() {
+    if (this._isWriting) {
+      this._needsWrite = true;
+      return;
+    }
+
+    this._isWriting = true;
+    this._needsWrite = false;
 
     overwolf.io.writeFileContents(
       this._logFilePath,
@@ -201,10 +216,15 @@ class InGame extends AppWindow {
       overwolf.io.enums.eEncoding.UTF8,
       false,
       (res) => {
+        this._isWriting = false;
         if (res.success) {
           console.log("Successfully wrote log to " + this._logFilePath);
         } else {
           console.error("Failed to write log to " + this._logFilePath + ". Error: " + res.error);
+        }
+
+        if (this._needsWrite) {
+          setTimeout(() => this.scheduleWrite(), 100);
         }
       }
     );
