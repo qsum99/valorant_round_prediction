@@ -123,11 +123,12 @@ class RoundState:
     def __init__(self):
         self.reset()
 
-    def reset(self):
+    def reset(self, keep_side=False):
         self.raw: dict = {}
         self.round_number:    int   = 0
         self.map_name:        str   = ""
-        self.local_side:      str   = ""
+        if not keep_side:
+            self.local_side:  str   = ""
         self.phase:           str   = ""
         self.score_won:       int   = 0
         self.score_lost:      int   = 0
@@ -508,7 +509,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
 
         events, is_new_file = watcher.poll()
 
-        if is_new_file:
+        if is_new_file or len(events) < processed:
             state.reset()
             processed  = 0
             last_phase = ""
@@ -633,7 +634,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
 
                     elif name == "match_start":
                         log.info("🎮 Match started!")
-                        state.reset()
+                        state.reset(keep_side=True)
                         last_phase = ""
                         await broadcast({"type": "match_start"})
 

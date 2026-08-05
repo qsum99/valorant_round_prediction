@@ -24,8 +24,8 @@ if sys.platform == "win32":
 
 # The source match data to replay
 SOURCE_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "match4.json"
-# Where the replayed events are written (same dir so server picks it up)
-OUTPUT_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "_test_replay.json"
+# Where the replayed events are written (Documents dir so server picks it up as active match log)
+OUTPUT_FILE = Path.home() / "Documents" / "valorant_game_events.json"
 WS_URL      = "ws://localhost:8765"
 EVENT_DELAY = 0.05   # seconds between events (0.05 = 20x speed)
 
