@@ -168,8 +168,7 @@ export const kGamesFeatures = new Map<number, string[]>([
       'me',
       'game_info',
       'match_info',
-      'kill',
-      'death'
+      'kill_feed'
     ]
   ],
   // Dota 2
