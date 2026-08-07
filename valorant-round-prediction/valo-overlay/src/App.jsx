@@ -3,6 +3,7 @@ import { useGameSocket } from './useGameSocket'
 import { ProbBar }   from './ProbBar'
 import { KillFeed }  from './KillFeed'
 import { ScoreBar }  from './ScoreBar'
+import { PostMatchReport } from './PostMatchReport'
 import './App.css'
 
 const MAX_KILLS = 9
@@ -10,6 +11,7 @@ const INITIAL = {
   connected: false, inMatch: false, round: 0, map: '', side: '',
   scoreWon: 0, scoreLost: 0, preProb: 50, liveProb: 50,
   spikePlanted: false, kills: [], phase: 'waiting', matchOutcome: null,
+  matchReport: null,
 }
 
 export default function App() {
@@ -80,6 +82,9 @@ export default function App() {
           scoreWon: msg.score_won ?? s.scoreWon,
           scoreLost: msg.score_lost ?? s.scoreLost }))
         break
+      case 'match_report':
+        setState(s => ({ ...s, phase: 'match_end', matchReport: msg }))
+        break
       default: break
     }
   }, [])
@@ -88,7 +93,7 @@ export default function App() {
 
   const { connected, inMatch, phase, round, map, side,
           scoreWon, scoreLost, preProb, liveProb,
-          spikePlanted, kills, matchOutcome } = state
+          spikePlanted, kills, matchOutcome, matchReport } = state
 
   if (!connected) return (
     <div className="overlay-root">
@@ -109,6 +114,16 @@ export default function App() {
   )
 
   if (phase === 'match_end') {
+    if (matchReport) {
+      return (
+        <div className="overlay-root">
+          <div className="overlay-panel main-panel">
+            <PostMatchReport report={matchReport} />
+          </div>
+        </div>
+      )
+    }
+
     const won = matchOutcome === 'victory'
     return (
       <div className="overlay-root">

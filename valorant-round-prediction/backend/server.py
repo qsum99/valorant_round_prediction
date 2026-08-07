@@ -132,6 +132,8 @@ class RoundState:
         self.phase:           str   = ""
         self.score_won:       int   = 0
         self.score_lost:      int   = 0
+        self.prev_score_won:  int   = 0
+        self.prev_score_lost: int   = 0
         self.pre_snap:        dict  = {}
         self.att_alive:       int   = PLAYER_COUNT
         self.def_alive:       int   = PLAYER_COUNT
@@ -278,6 +280,142 @@ class RoundState:
 
     def on_spike_planted(self):
         self.spike_planted = True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Match history accumulator (for post-match report)
+# ══════════════════════════════════════════════════════════════════════════════
+
+FORCE_BUY_THRESHOLD = 14000  # between eco and full-buy
+
+class MatchHistory:
+    """Accumulates per-round data during a match for the post-match report."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.rounds = []          # list of round dicts
+        self._current_round = {}  # in-progress round data
+        self._round_kills = 0
+        self._round_deaths = 0
+
+    def record_round_start(self, round_num, side, score_won, score_lost,
+                           pre_prob, ally_money, enemy_money):
+        """Called at shopping/buy phase."""
+        if round_num <= 1 and score_won == 0 and score_lost == 0:
+            buy_type = "pistol"
+        elif ally_money < ECO_THRESHOLD:
+            buy_type = "eco"
+        elif ally_money < FORCE_BUY_THRESHOLD:
+            buy_type = "force"
+        else:
+            buy_type = "full_buy"
+
+        self._current_round = {
+            "round": round_num,
+            "side": side,
+            "score_before": [score_won, score_lost],
+            "pre_prob": round(pre_prob * 100, 1),
+            "ally_money": ally_money,
+            "enemy_money": enemy_money,
+            "buy_type": buy_type,
+        }
+        self._round_kills = 0
+        self._round_deaths = 0
+
+    def record_kill(self, is_ally_kill):
+        """Called on each kill_feed event."""
+        if is_ally_kill:
+            self._round_kills += 1
+        else:
+            self._round_deaths += 1
+
+    def record_round_end(self, round_num, score_won, score_lost,
+                         won: bool, final_prob: float):
+        """Called at end phase. `won` is explicitly computed by caller."""
+        if not self._current_round:
+            return
+
+        cr = self._current_round
+        cr["score_after"] = [score_won, score_lost]
+        cr["won"] = won
+        cr["final_prob"] = round(final_prob * 100, 1)
+        cr["kills"] = self._round_kills
+        cr["deaths"] = self._round_deaths
+
+        # Performance: did we beat or miss our expected probability?
+        pre = cr["pre_prob"]
+        if won and pre < 40:
+            cr["performance"] = "overperformed"
+        elif not won and pre > 60:
+            cr["performance"] = "underperformed"
+        else:
+            cr["performance"] = "expected"
+
+        # Probability swing: how much the outcome shifted from pre-round expectation
+        if won:
+            cr["prob_swing"] = round(100 - pre, 1)
+        else:
+            cr["prob_swing"] = round(-pre, 1)
+
+        self.rounds.append(cr)
+        self._current_round = {}
+
+    def generate_report(self, map_name, outcome, final_score_won, final_score_lost):
+        """Generates the full post-match report payload."""
+        if not self.rounds:
+            return None
+
+        # --- Pivotal rounds: largest absolute prob_swing ---
+        sorted_by_swing = sorted(
+            self.rounds,
+            key=lambda r: abs(r.get("prob_swing", 0)),
+            reverse=True
+        )
+        pivotal = []
+        for r in sorted_by_swing[:3]:
+            swing = r.get("prob_swing", 0)
+            if r["won"]:
+                if r["pre_prob"] < 40:
+                    reason = f"Won upset round (only {r['pre_prob']}% expected)"
+                elif r["buy_type"] == "eco":
+                    reason = "Won eco round"
+                else:
+                    reason = "Key round win"
+            else:
+                if r["pre_prob"] > 60:
+                    reason = f"Lost favored round ({r['pre_prob']}% expected)"
+                elif r["buy_type"] == "full_buy":
+                    reason = "Lost full-buy round"
+                else:
+                    reason = "Key round loss"
+            pivotal.append({
+                "round": r["round"],
+                "swing": round(abs(swing), 1),
+                "reason": reason,
+                "won": r["won"],
+                "pre_prob": r["pre_prob"],
+            })
+
+        # --- Economy efficiency by buy type ---
+        economy = {}
+        for bt in ("pistol", "eco", "force", "full_buy"):
+            bt_rounds = [r for r in self.rounds if r.get("buy_type") == bt]
+            economy[bt] = {
+                "played": len(bt_rounds),
+                "won": sum(1 for r in bt_rounds if r.get("won")),
+            }
+
+        return {
+            "type": "match_report",
+            "map": map_name,
+            "outcome": outcome,
+            "final_score": [final_score_won, final_score_lost],
+            "rounds": self.rounds,
+            "pivotal_rounds": pivotal,
+            "economy": economy,
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -443,6 +581,7 @@ class LogWatcher:
 
 connected_clients: set = set()
 global_state = RoundState()
+match_history = MatchHistory()
 
 async def ws_handler(websocket):
     connected_clients.add(websocket)
@@ -497,6 +636,7 @@ async def broadcast(message: dict):
 
 async def game_loop(predictor: Predictor, watcher: LogWatcher):
     state      = global_state
+    history    = match_history
     last_phase = ""
     processed  = 0
 
@@ -541,6 +681,23 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         state.pre_round_prob = prob
                         state.live_prob      = prob
 
+                        # Snapshot previous scores for won detection at round end
+                        state.prev_score_won  = state.score_won
+                        state.prev_score_lost = state.score_lost
+
+                        # Record for post-match report
+                        ally_money  = state.pre_snap.get("att_money", 0) if state.local_side == "attack" else state.pre_snap.get("def_money", 0)
+                        enemy_money = state.pre_snap.get("def_money", 0) if state.local_side == "attack" else state.pre_snap.get("att_money", 0)
+                        history.record_round_start(
+                            round_num=max(1, state.round_number),
+                            side=state.local_side or "attack",
+                            score_won=state.score_won,
+                            score_lost=state.score_lost,
+                            pre_prob=prob,
+                            ally_money=ally_money,
+                            enemy_money=enemy_money,
+                        )
+
                         log.info(
                             f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
                             f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost})"
@@ -556,6 +713,15 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         })
 
                     elif phase == "end":
+                        # Determine winner from score change
+                        won = state.score_won > state.prev_score_won
+                        history.record_round_end(
+                            round_num=max(1, state.round_number),
+                            score_won=state.score_won,
+                            score_lost=state.score_lost,
+                            won=won,
+                            final_prob=state.live_prob,
+                        )
                         await broadcast({
                             "type"      : "round_end",
                             "round"     : max(1, state.round_number),
@@ -566,13 +732,25 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                     elif phase == "game_end":
                         outcome = state.raw.get("match_outcome", "unknown")
                         log.info(f"🏁 Match ended — {outcome}")
+
+                        # Generate and broadcast post-match report
+                        report = history.generate_report(
+                            map_name=state.map_name,
+                            outcome=outcome,
+                            final_score_won=state.score_won,
+                            final_score_lost=state.score_lost,
+                        )
                         await broadcast({
                             "type"      : "match_end",
                             "outcome"   : outcome,
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                         })
+                        if report:
+                            log.info(f"📊 Post-match report: {len(report['rounds'])} rounds, {len(report['pivotal_rounds'])} pivotal")
+                            await broadcast(report)
                         state.reset()
+                        history.reset()
                         last_phase = ""
 
             # ── Event: kill_feed, spike, match_start ───────────────────────
@@ -610,6 +788,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                             (state.local_side == "attack"  and kf_data.get("is_attacker_teammate")) or
                             (state.local_side == "defense" and not kf_data.get("is_attacker_teammate"))
                         )
+                        history.record_kill(is_ally_kill)
 
                         log.info(
                             f"  Kill {state.kill_index}: {attacker} → {victim}"
@@ -635,6 +814,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                     elif name == "match_start":
                         log.info("🎮 Match started!")
                         state.reset(keep_side=True)
+                        history.reset()
                         last_phase = ""
                         await broadcast({"type": "match_start"})
 

@@ -1,0 +1,348 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Post-Match Report Styles
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pmr-root {
+  width: 100%;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.pmr-root::-webkit-scrollbar { width: 4px; }
+.pmr-root::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+
+.pmr-header {
+  text-align: center;
+  padding: 16px 12px 12px;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+.pmr-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+}
+.pmr-header.victory::before { background: var(--ally); }
+.pmr-header.defeat::before  { background: var(--enemy); }
+.pmr-header.victory { border-top: 2px solid var(--ally); }
+.pmr-header.defeat  { border-top: 2px solid var(--enemy); }
+
+.pmr-result {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  position: relative;
+}
+.victory .pmr-result { color: var(--ally); }
+.defeat  .pmr-result { color: var(--enemy); }
+
+.pmr-score {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-top: 2px;
+  position: relative;
+}
+.pmr-map {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-3);
+  margin-top: 4px;
+  text-transform: uppercase;
+  position: relative;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+
+.pmr-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.pmr-section-title {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+/* ── Win Probability Chart ────────────────────────────────────────────── */
+
+.pmr-chart {
+  position: relative;
+  padding: 4px 0;
+}
+.pmr-chart-midline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  z-index: 0;
+}
+.pmr-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 80px;
+  position: relative;
+  z-index: 1;
+}
+.pmr-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.pmr-bar {
+  width: 100%;
+  min-width: 6px;
+  max-width: 18px;
+  border-radius: 2px 2px 0 0;
+  position: relative;
+  transition: height 0.3s ease;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.pmr-bar-label {
+  font-family: var(--font-display);
+  font-size: 7px;
+  font-weight: 600;
+  color: var(--text-1);
+  position: absolute;
+  top: -12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.pmr-bar-col:hover .pmr-bar-label { opacity: 1; }
+
+.bar-won  { background: var(--ally); opacity: 0.7; }
+.bar-lost { background: var(--enemy); opacity: 0.5; }
+.bar-over { opacity: 1; box-shadow: 0 0 6px rgba(255,70,85,0.4); }
+.bar-under { opacity: 1; box-shadow: 0 0 6px rgba(79,195,247,0.4); }
+
+.pmr-bar-round {
+  font-family: var(--font-display);
+  font-size: 7px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.pmr-half-marker {
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--gold);
+  opacity: 0.4;
+  z-index: 2;
+}
+.pmr-chart-legend {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  justify-content: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0.05em;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+}
+.dot.won   { background: var(--ally); opacity: 0.7; }
+.dot.lost  { background: var(--enemy); opacity: 0.5; }
+.dot.over  { background: var(--ally); box-shadow: 0 0 4px rgba(255,70,85,0.5); }
+.dot.under { background: var(--enemy); box-shadow: 0 0 4px rgba(79,195,247,0.5); }
+
+/* ── Pivotal Rounds ───────────────────────────────────────────────────── */
+
+.pmr-pivotal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pmr-pivotal-card {
+  background: var(--surface2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  border-left: 3px solid transparent;
+}
+.piv-won  { border-left-color: var(--ally); }
+.piv-lost { border-left-color: var(--enemy); }
+
+.piv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.piv-round {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: 0.1em;
+}
+.piv-badge {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.badge-won  { background: var(--ally-dim); color: var(--ally); }
+.badge-lost { background: var(--enemy-dim); color: var(--enemy); }
+
+.piv-reason {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+.piv-stats {
+  display: flex;
+  gap: 12px;
+}
+.piv-pre, .piv-swing {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* ── Economy ──────────────────────────────────────────────────────────── */
+
+.pmr-econ-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.pmr-econ-card {
+  background: var(--surface2);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.econ-label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-2);
+  margin-bottom: 5px;
+}
+.econ-bar-track {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.econ-bar-fill {
+  height: 100%;
+  background: var(--ally);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.econ-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.econ-wr {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.econ-detail {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* ── Round Table ──────────────────────────────────────────────────────── */
+
+.pmr-table-wrap {
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.pmr-table-wrap::-webkit-scrollbar { width: 3px; }
+.pmr-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.pmr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+.pmr-table th {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-3);
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.pmr-table td {
+  padding: 3px 6px;
+  color: var(--text-2);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.pmr-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.row-won td  { color: var(--text-1); }
+.row-lost td { opacity: 0.7; }
+.row-over  { background: rgba(255,70,85,0.04); }
+.row-under { background: rgba(79,195,247,0.04); }
+
+.td-round { font-weight: 600; color: var(--text-1); }
+.side-atk { color: var(--ally); }
+.side-def { color: var(--enemy); }
+.td-buy { text-transform: uppercase; font-size: 8px; letter-spacing: 0.08em; }
+.td-prob { font-weight: 600; }
+.td-kd { font-weight: 500; }
+
+.res-won  { color: var(--ally); font-weight: 700; }
+.res-lost { color: var(--enemy); font-weight: 700; }
+
+.perf-tag {
+  font-size: 9px;
+  margin-left: 3px;
+}
+.over-tag  { color: var(--ally); }
+.under-tag { color: var(--enemy); }

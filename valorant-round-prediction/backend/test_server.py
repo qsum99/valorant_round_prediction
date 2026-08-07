@@ -60,6 +60,33 @@ async def listen():
                 print(f"\n[Match End] {data.get('outcome', '?')}")
                 print(f"   Final score: {data['score_won']}-{data['score_lost']}")
 
+            elif msg_type == "match_report":
+                print(f"\n{'='*60}")
+                print(f"  POST-MATCH REPORT")
+                print(f"{'='*60}")
+                print(f"  Map: {data.get('map', '?')} | Outcome: {data.get('outcome', '?')}")
+                print(f"  Final Score: {data['final_score'][0]}-{data['final_score'][1]}")
+                print(f"  Rounds played: {len(data['rounds'])}")
+                print()
+                print("  Round | Side    | Buy      | Pre%  | Won | Perf")
+                print("  " + "-"*56)
+                for r in data["rounds"]:
+                    side_str = r["side"][:3].upper()
+                    print(f"  R{r['round']:>2}   | {side_str:<7} | {r['buy_type']:<8} | "
+                          f"{r['pre_prob']:>5.1f} | {'✓' if r['won'] else '✗'}   | {r.get('performance', '')}")
+                print()
+                print("  PIVOTAL ROUNDS:")
+                for p in data["pivotal_rounds"]:
+                    icon = "🟢" if p["won"] else "🔴"
+                    print(f"    {icon} R{p['round']}: {p['reason']} (swing: {p['swing']}%)")
+                print()
+                print("  ECONOMY:")
+                for bt, stats in data["economy"].items():
+                    if stats["played"] > 0:
+                        wr = stats["won"] / stats["played"] * 100
+                        print(f"    {bt:<8}: {stats['won']}/{stats['played']} won ({wr:.0f}%)")
+                print(f"{'='*60}")
+
             elif msg_type == "connected":
                 print(f"[Server] {data['message']}")
 
