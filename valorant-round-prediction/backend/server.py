@@ -500,6 +500,7 @@ class LogWatcher:
         # Check standard Overwolf log locations in Documents (active match can be up to 30 mins old)
         home = Path.home()
         possible_doc_files = [
+            self.watch_dir / "valorant_game_events.json",
             home / "OneDrive" / "Documents" / "valorant_game_events.json",
             home / "Documents" / "valorant_game_events.json",
             home / "OneDrive" / "Documents" / "valorant_round_data.json",
