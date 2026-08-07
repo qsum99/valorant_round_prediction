@@ -92,7 +92,7 @@ async def listen():
 
 
 async def replay():
-    """Replay match4.json by writing events incrementally to _test_replay.json."""
+    """Replay match4.json by writing events incrementally to raw_matchs_data/valorant_game_events.json."""
     if not SOURCE_FILE.exists():
         print(f"Replay file not found: {SOURCE_FILE}")
         print("Make sure match4.json is in raw_matchs_data/")

@@ -484,8 +484,7 @@ class Predictor:
 
 class LogWatcher:
     """
-    Watches the most recently modified JSON file in the watch directory
-    or standard Overwolf Documents log directory.
+    Watches the most recently modified JSON file in raw_matchs_data/ or standard Documents log directory.
     """
 
     def __init__(self, watch_dir: Path):
@@ -497,7 +496,7 @@ class LogWatcher:
     def get_latest_json(self) -> Path | None:
         candidates = []
         
-        # Check standard Overwolf log locations in Documents (active match can be up to 30 mins old)
+        # Check primary project watch_dir (raw_matchs_data/valorant_game_events.json) and Documents fallbacks
         home = Path.home()
         possible_doc_files = [
             self.watch_dir / "valorant_game_events.json",
