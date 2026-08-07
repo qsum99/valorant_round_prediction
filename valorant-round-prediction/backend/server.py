@@ -500,6 +500,7 @@ class LogWatcher:
         home = Path.home()
         possible_doc_files = [
             self.watch_dir / "valorant_game_events.json",
+            self.watch_dir / "valorant_round_data.json",
             home / "OneDrive" / "Documents" / "valorant_game_events.json",
             home / "Documents" / "valorant_game_events.json",
             home / "OneDrive" / "Documents" / "valorant_round_data.json",
