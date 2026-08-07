@@ -64,3 +64,34 @@
   font-weight: 500;
   color: var(--text-2);
 }
+
+/* Post Match Report Expansion & Responsiveness */
+.overlay-root.post-match-root {
+  width: min(900px, calc(100vw - 40px));
+  min-width: 400px;
+  top: 20px;
+  bottom: 20px;
+  right: 20px;
+  left: auto;
+  pointer-events: auto;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.overlay-root.post-match-root::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overlay-root.post-match-root::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.overlay-panel.pmr-panel {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+

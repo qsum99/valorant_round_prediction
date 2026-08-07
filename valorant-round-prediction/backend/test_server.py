@@ -1,18 +1,22 @@
 """
 test_server.py
 --------------
-Simulates a live Valorant match by replaying match4.json through the backend.
+Simulates a live Valorant match by replaying match data through the backend.
 Use this to test the server WITHOUT needing to play a real game.
 
 Usage:
     # Terminal 1 — start backend
     python backend/server.py
 
-    # Terminal 2 — run simulation
+    # Terminal 2 — run simulation (defeat match)
     python backend/test_server.py
+
+    # Or replay a victory match
+    python backend/test_server.py --file match13
 """
 
 import asyncio
+import argparse
 import json
 import sys
 import websockets
@@ -22,12 +26,11 @@ from pathlib import Path
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-# The source match data to replay
-SOURCE_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "match4.json"
-# Where the replayed events are written (raw_matchs_data dir so all project files stay in one folder)
-OUTPUT_FILE = Path(__file__).parent.parent / "raw_matchs_data" / "valorant_game_events.json"
+# Available test matches
+MATCH_DIR   = Path(__file__).parent.parent / "raw_matchs_data"
+OUTPUT_FILE = MATCH_DIR / "valorant_game_events.json"
 WS_URL      = "ws://localhost:8765"
-EVENT_DELAY = 0.05   # seconds between events (0.05 = 20x speed)
+DEFAULT_MATCH = "match4"  # defeat (11-13)
 
 
 async def listen():
@@ -91,15 +94,17 @@ async def listen():
                 print(f"[Server] {data['message']}")
 
 
-async def replay():
-    """Replay match4.json by writing events incrementally to raw_matchs_data/valorant_game_events.json."""
-    if not SOURCE_FILE.exists():
-        print(f"Replay file not found: {SOURCE_FILE}")
-        print("Make sure match4.json is in raw_matchs_data/")
+async def replay(source_file: Path):
+    """Replay a match by writing events incrementally to valorant_game_events.json."""
+    if not source_file.exists():
+        print(f"Replay file not found: {source_file}")
+        print(f"Available matches in {MATCH_DIR}:")
+        for f in sorted(MATCH_DIR.glob("match*.json")):
+            print(f"  {f.stem}")
         return
 
-    print(f"[Replay] Loading {SOURCE_FILE.name}...")
-    with open(SOURCE_FILE, encoding="utf-8") as f:
+    print(f"[Replay] Loading {source_file.name}...")
+    with open(source_file, encoding="utf-8") as f:
         events = json.load(f)
 
     if OUTPUT_FILE.exists():
@@ -108,30 +113,39 @@ async def replay():
     await asyncio.sleep(2)
 
     written = []
-    print(f"[Replay] Replaying {len(events)} events at {1/EVENT_DELAY:.0f}x speed...")
+    batch_size = 25
+    print(f"[Replay] Replaying {len(events)} events fast in batches of {batch_size}...")
     print("[Replay] Watch the listener terminal for predictions!\n")
 
     for i, event in enumerate(events):
         written.append(event)
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            json.dump(written, f)
-        await asyncio.sleep(EVENT_DELAY)
+        if (i + 1) % batch_size == 0 or (i + 1) == len(events):
+            with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+                json.dump(written, f)
+            await asyncio.sleep(0.01)
 
-        if (i + 1) % 500 == 0:
+        if (i + 1) % 1000 == 0:
             print(f"[Replay] {i + 1}/{len(events)} events written...")
 
     print(f"\n[Replay] Done. Wrote {len(written)} events to {OUTPUT_FILE.name}")
 
 
-async def main():
-    print("Starting test — make sure backend/server.py is running first!\n")
+async def main(match_name: str):
+    source_file = MATCH_DIR / f"{match_name}.json"
+    print(f"Starting test with {match_name} — make sure backend/server.py is running first!\n")
     await asyncio.sleep(1)
 
     await asyncio.gather(
         listen(),
-        replay(),
+        replay(source_file),
     )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Replay a Valorant match through the backend")
+    parser.add_argument(
+        "--file", default=DEFAULT_MATCH,
+        help=f"Match file stem to replay (default: {DEFAULT_MATCH}). Examples: match4 (defeat), match13 (victory)"
+    )
+    args = parser.parse_args()
+    asyncio.run(main(args.file))

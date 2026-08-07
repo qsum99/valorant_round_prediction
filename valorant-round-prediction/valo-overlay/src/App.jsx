@@ -116,8 +116,8 @@ export default function App() {
   if (phase === 'match_end') {
     if (matchReport) {
       return (
-        <div className="overlay-root">
-          <div className="overlay-panel main-panel">
+        <div className="overlay-root post-match-root">
+          <div className="overlay-panel pmr-panel">
             <PostMatchReport report={matchReport} />
           </div>
         </div>

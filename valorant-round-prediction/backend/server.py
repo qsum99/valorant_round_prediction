@@ -333,28 +333,37 @@ class MatchHistory:
 
     def record_round_end(self, round_num, score_won, score_lost,
                          won: bool, final_prob: float):
-        """Called at end phase. `won` is explicitly computed by caller."""
+        """Called at end phase."""
         if not self._current_round:
             return
 
         cr = self._current_round
+        # Accurately determine won if score increased since round start
+        score_before_won = cr.get("score_before", [0, 0])[0]
+        if score_won > score_before_won:
+            is_won = True
+        elif won:
+            is_won = True
+        else:
+            is_won = False
+
         cr["score_after"] = [score_won, score_lost]
-        cr["won"] = won
+        cr["won"] = is_won
         cr["final_prob"] = round(final_prob * 100, 1)
         cr["kills"] = self._round_kills
         cr["deaths"] = self._round_deaths
 
-        # Performance: did we beat or miss our expected probability?
+        # Player performance: clutch (won against odds) or choke (lost when favored)
         pre = cr["pre_prob"]
-        if won and pre < 40:
-            cr["performance"] = "overperformed"
-        elif not won and pre > 60:
-            cr["performance"] = "underperformed"
+        if is_won and pre < 40:
+            cr["performance"] = "clutch"
+        elif not is_won and pre > 60:
+            cr["performance"] = "choke"
         else:
             cr["performance"] = "expected"
 
         # Probability swing: how much the outcome shifted from pre-round expectation
-        if won:
+        if is_won:
             cr["prob_swing"] = round(100 - pre, 1)
         else:
             cr["prob_swing"] = round(-pre, 1)
@@ -378,18 +387,18 @@ class MatchHistory:
             swing = r.get("prob_swing", 0)
             if r["won"]:
                 if r["pre_prob"] < 40:
-                    reason = f"Won upset round (only {r['pre_prob']}% expected)"
+                    reason = f"Clutch! Won with only {r['pre_prob']}% odds"
                 elif r["buy_type"] == "eco":
-                    reason = "Won eco round"
+                    reason = "Huge eco round win — great economy swing"
                 else:
-                    reason = "Key round win"
+                    reason = "Key round win that shifted momentum"
             else:
                 if r["pre_prob"] > 60:
-                    reason = f"Lost favored round ({r['pre_prob']}% expected)"
+                    reason = f"Choked with {r['pre_prob']}% odds — should have won"
                 elif r["buy_type"] == "full_buy":
-                    reason = "Lost full-buy round"
+                    reason = "Lost full-buy — economy wasted"
                 else:
-                    reason = "Key round loss"
+                    reason = "Key round loss that shifted momentum"
             pivotal.append({
                 "round": r["round"],
                 "swing": round(abs(swing), 1),
@@ -677,12 +686,24 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                     last_phase = phase
 
                     if phase in ("shopping", "start", "buy") or (phase == "combat" and not state.pre_snap):
+                        # FIRST: finalize the PREVIOUS round now that scores are updated
+                        # (Overwolf updates the score between rounds, not at round end)
+                        if history._current_round:
+                            prev_won = state.score_won > state.prev_score_won
+                            history.record_round_end(
+                                round_num=history._current_round.get("round", 0),
+                                score_won=state.score_won,
+                                score_lost=state.score_lost,
+                                won=prev_won,
+                                final_prob=state.live_prob,
+                            )
+
                         state.capture_pre_round_snapshot()
                         prob = predictor.predict_pre_round(state.pre_snap)
                         state.pre_round_prob = prob
                         state.live_prob      = prob
 
-                        # Snapshot previous scores for won detection at round end
+                        # Snapshot current scores for detecting next round's result
                         state.prev_score_won  = state.score_won
                         state.prev_score_lost = state.score_lost
 
@@ -714,15 +735,8 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                         })
 
                     elif phase == "end":
-                        # Determine winner from score change
-                        won = state.score_won > state.prev_score_won
-                        history.record_round_end(
-                            round_num=max(1, state.round_number),
-                            score_won=state.score_won,
-                            score_lost=state.score_lost,
-                            won=won,
-                            final_prob=state.live_prob,
-                        )
+                        # Just broadcast round_end — actual win/loss is determined
+                        # at the start of the next round when scores are updated
                         await broadcast({
                             "type"      : "round_end",
                             "round"     : max(1, state.round_number),
@@ -733,6 +747,17 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                     elif phase == "game_end":
                         outcome = state.raw.get("match_outcome", "unknown")
                         log.info(f"🏁 Match ended — {outcome}")
+
+                        # Finalize the last round now that scores are final
+                        if history._current_round:
+                            last_won = state.score_won > state.prev_score_won
+                            history.record_round_end(
+                                round_num=history._current_round.get("round", 0),
+                                score_won=state.score_won,
+                                score_lost=state.score_lost,
+                                won=last_won,
+                                final_prob=state.live_prob,
+                            )
 
                         # Generate and broadcast post-match report
                         report = history.generate_report(
