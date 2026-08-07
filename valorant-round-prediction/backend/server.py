@@ -509,7 +509,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
 
         events, is_new_file = watcher.poll()
 
-        if is_new_file or len(events) < processed:
+        if is_new_file or (events and len(events) < processed):
             state.reset()
             processed  = 0
             last_phase = ""
