@@ -148,6 +148,7 @@ class RoundState:
         self.spike_planted:   bool  = False
         self.pre_round_prob:  float = 0.5
         self.live_prob:       float = 0.5
+        self.last_buy_rec:    dict | None = None
 
     def update_from_info(self, data: dict):
         mi = data.get("match_info", data) if isinstance(data, dict) else {}
@@ -718,6 +719,8 @@ class LogWatcher:
 connected_clients: set = set()
 global_state = RoundState()
 match_history = MatchHistory()
+last_match_end_payload: dict | None = None
+last_match_report_payload: dict | None = None
 
 async def ws_handler(websocket):
     connected_clients.add(websocket)
@@ -742,7 +745,13 @@ async def ws_handler(websocket):
                 "score_won" : global_state.score_won,
                 "score_lost": global_state.score_lost,
                 "prob"      : round(global_state.pre_round_prob * 100, 1),
+                "buy_recommendation": global_state.last_buy_rec,
             }))
+        elif last_match_end_payload:
+            # Send latest match end report if overlay connected right after match ended
+            await websocket.send(json.dumps(last_match_end_payload))
+            if last_match_report_payload:
+                await websocket.send(json.dumps(last_match_report_payload))
 
         async for _ in websocket:
             pass
@@ -847,6 +856,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             score_won=state.score_won,
                             score_lost=state.score_lost,
                         )
+                        state.last_buy_rec = buy_rec
 
                         # Record for post-match report
                         history.on_shopping_phase(
@@ -927,14 +937,22 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             final_score_won=state.score_won,
                             final_score_lost=state.score_lost,
                         )
-                        await broadcast({
+                        if report:
+                            report["report_file"] = report_file
+                            report["report_url"]  = report_url
+
+                        global last_match_end_payload, last_match_report_payload
+                        last_match_end_payload = {
                             "type"       : "match_end",
                             "outcome"    : outcome,
                             "score_won"  : state.score_won,
                             "score_lost" : state.score_lost,
                             "report_file": report_file,
                             "report_url" : report_url,
-                        })
+                        }
+                        last_match_report_payload = report
+
+                        await broadcast(last_match_end_payload)
                         if report:
                             log.info(f"📊 Post-match report: {len(report['rounds'])} rounds | HTML saved: {report_file}")
                             await broadcast(report)

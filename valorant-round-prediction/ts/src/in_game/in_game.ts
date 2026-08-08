@@ -28,7 +28,6 @@ class InGame extends AppWindow {
     this._eventsLog = document.getElementById('eventsLog');
     this._infoLog = document.getElementById('infoLog');
 
-    this.setToggleHotkeyBehavior();
     this.setToggleHotkeyText();
 
     this._logFilePath = `${overwolf.io.paths.documents}\\valorant_game_events.json`;
@@ -44,19 +43,6 @@ class InGame extends AppWindow {
   }
 
   public async run() {
-    try {
-      const currentInfo = await OWWindow.getCurrentInfo();
-      if (currentInfo && currentInfo.id) {
-        (overwolf.windows as any).setWindowFlags(
-          currentInfo.id,
-          ["InputPassThrough"],
-          (res: any) => console.log("InputPassThrough set:", res)
-        );
-      }
-    } catch (e) {
-      console.warn("Could not set InputPassThrough flag:", e);
-    }
-
     this.initGameEventsListener();
   }
 
@@ -141,29 +127,6 @@ class InGame extends AppWindow {
     } catch (e) {
       console.warn("Could not set hotkey text:", e);
     }
-  }
-
-  // Sets toggleInGameWindow as the behavior for the Ctrl+F hotkey
-  private async setToggleHotkeyBehavior() {
-    const toggleInGameWindow = async (
-      hotkeyResult: overwolf.settings.hotkeys.OnPressedEvent
-    ): Promise<void> => {
-      console.log(`pressed hotkey for ${hotkeyResult.name}`);
-      try {
-        const inGameState = await this.getWindowState();
-        const stateStr = (inGameState as any).window_state_ex || (inGameState as any).window_state;
-
-        if (stateStr === WindowState.NORMAL || stateStr === WindowState.MAXIMIZED) {
-          this.currWindow.minimize();
-        } else {
-          this.currWindow.restore();
-        }
-      } catch (e) {
-        console.error("Error toggling in-game window:", e);
-      }
-    };
-
-    OWHotkeys.onHotkeyDown(kHotkeys.toggle, toggleInGameWindow);
   }
 
   private logLine(logElem: HTMLElement | null, data: any, highlight: boolean) {

@@ -52,9 +52,9 @@ class BackgroundController {
       const inGameWindow = this._windows[kWindowNames.inGame];
       if (!inGameWindow) return;
       const state = await inGameWindow.getWindowState();
-      const stateStr = (state as any).window_state_ex || (state as any).window_state;
+      const stateStr = String((state as any).window_state_ex || (state as any).window_state || '').toLowerCase();
       console.log('Current in_game window state:', stateStr);
-      if (stateStr === WindowState.NORMAL || stateStr === WindowState.MAXIMIZED || stateStr === 'normal' || stateStr === 'maximized') {
+      if (stateStr === 'normal' || stateStr === 'maximized') {
         await inGameWindow.minimize();
       } else {
         await inGameWindow.restore();

@@ -65,7 +65,7 @@ export default function App() {
           scoreLost: msg.score_lost ?? s.scoreLost,
           preProb: msg.prob, liveProb: msg.prob,
           spikePlanted: false, kills: [],
-          buyRecommendation: msg.buy_recommendation || null,
+          buyRecommendation: msg.buy_recommendation || s.buyRecommendation || null,
         }))
         break
       case 'live_update': {
@@ -100,9 +100,9 @@ export default function App() {
         clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => {
           setState(s => ({ ...s, showToast: false }))
-        }, 10000)
+        }, 15000)
         setState(s => ({
-          ...s, phase: 'match_end', matchOutcome: msg.outcome,
+          ...s, inMatch: true, phase: 'match_end', matchOutcome: msg.outcome,
           scoreWon: msg.score_won ?? s.scoreWon,
           scoreLost: msg.score_lost ?? s.scoreLost,
           reportFile: msg.report_file || s.reportFile,
@@ -111,7 +111,15 @@ export default function App() {
         }))
         break
       case 'match_report':
-        setState(s => ({ ...s, phase: 'match_end', matchReport: msg }))
+        setState(s => ({
+          ...s,
+          inMatch: true,
+          phase: 'match_end',
+          matchReport: msg,
+          reportFile: msg.report_file || s.reportFile,
+          reportUrl: msg.report_url || s.reportUrl,
+          showToast: true,
+        }))
         break
       default: break
     }
@@ -225,7 +233,7 @@ export default function App() {
         <ScoreBar scoreWon={scoreWon} scoreLost={scoreLost}
           round={round} map={map} side={side} spikePlanted={spikePlanted} />
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
-        {phase === 'pre_round' && buyRecommendation && (
+        {buyRecommendation && (phase === 'pre_round' || kills.length === 0) && (
           <BuyAdvisor recommendation={buyRecommendation} />
         )}
         {kills.length > 0 && (
