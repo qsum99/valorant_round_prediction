@@ -59,7 +59,7 @@ function CustomChartTooltip({ active, payload }) {
   )
 }
 
-export function PostMatchReport({ report }) {
+export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport }) {
   if (!report) return null
 
   const {
@@ -101,15 +101,15 @@ export function PostMatchReport({ report }) {
   // Chart data formatting for Recharts
   const chartData = useMemo(() => {
     return rounds.map(r => ({
-      name: `R${r.round}`,
-      roundNum: r.round,
+      name: `R${r.round_number || r.round}`,
+      roundNum: r.round_number || r.round,
       prob: Math.round(r.pre_prob * 10) / 10,
       won: r.won,
       performance: r.performance || 'expected',
       side: r.side,
       buyType: r.buy_type || 'full_buy',
-      kills: r.kills ?? 0,
-      deaths: r.deaths ?? 0,
+      kills: r.kills_by_local ?? (r.kills ?? 0),
+      deaths: r.deaths_by_local ?? (r.deaths ?? 0),
     }))
   }, [rounds])
 
@@ -161,6 +161,18 @@ export function PostMatchReport({ report }) {
             <span className="meta-val text-enemy">{lostCount}L</span>
             <span className="meta-lbl">LOST</span>
           </div>
+          {(reportUrl || reportFile) && onOpenReport && (
+            <>
+              <div className="meta-divider" />
+              <button
+                className="pmr-header-action-btn"
+                onClick={() => onOpenReport(reportUrl, reportFile)}
+                title="Open standalone interactive dashboard in browser"
+              >
+                📊 FULL REPORT ↗
+              </button>
+            </>
+          )}
         </div>
       </div>
 

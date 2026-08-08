@@ -95,3 +95,125 @@
   box-shadow: none;
 }
 
+/* Post Match Toast Notification */
+.report-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(15, 25, 35, 0.98) 0%, rgba(26, 35, 50, 0.98) 100%);
+  border: 1px solid #00e5cc;
+  box-shadow: 0 8px 24px rgba(0, 229, 204, 0.25), 0 0 15px rgba(0, 229, 204, 0.15);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  animation: toastSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+@keyframes toastSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast-icon {
+  font-size: 18px;
+}
+
+.toast-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.toast-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: #00e5cc;
+  letter-spacing: 0.05em;
+}
+
+.toast-sub {
+  font-size: 11px;
+  color: #8fa3b1;
+  margin-top: 1px;
+}
+
+.toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast-btn {
+  background: #00e5cc;
+  color: #0f1923;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toast-btn:hover {
+  background: #33ebd6;
+  box-shadow: 0 0 12px rgba(0, 229, 204, 0.6);
+  transform: translateY(-1px);
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: #8fa3b1;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.toast-close:hover {
+  color: #ffffff;
+}
+
+.pmr-open-report-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(0, 229, 204, 0.15) 0%, rgba(0, 229, 204, 0.25) 100%);
+  border: 1px solid #00e5cc;
+  color: #00e5cc;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pmr-open-report-btn:hover {
+  background: #00e5cc;
+  color: #0f1923;
+  box-shadow: 0 0 16px rgba(0, 229, 204, 0.5);
+  transform: translateY(-1px);
+}
+
+

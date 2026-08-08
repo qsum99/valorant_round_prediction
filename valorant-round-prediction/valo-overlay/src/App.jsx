@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useGameSocket } from './useGameSocket'
 import { ProbBar }      from './ProbBar'
 import { KillFeed }     from './KillFeed'
@@ -13,12 +13,14 @@ const INITIAL = {
   scoreWon: 0, scoreLost: 0, preProb: 50, liveProb: 50,
   spikePlanted: false, kills: [], phase: 'waiting', matchOutcome: null,
   matchReport: null, buyRecommendation: null,
+  reportFile: null, reportUrl: null, showToast: false,
 }
 
 export default function App() {
   const [state, setState] = useState(INITIAL)
   const [animating, setAnim] = useState(false)
   const flashTimer = useRef(null)
+  const toastTimer = useRef(null)
 
   const triggerFlash = () => {
     setAnim(false)
@@ -28,6 +30,20 @@ export default function App() {
       flashTimer.current = setTimeout(() => setAnim(false), 500)
     })
   }
+
+  const openReport = useCallback((url, filePath) => {
+    const targetUrl = url || (filePath ? `file:///${filePath.replace(/\\/g, '/')}` : '')
+    if (!targetUrl) return
+    try {
+      if (window.overwolf?.utils?.openUrlInDefaultBrowser) {
+        window.overwolf.utils.openUrlInDefaultBrowser(targetUrl)
+      } else {
+        window.open(targetUrl, '_blank')
+      }
+    } catch (e) {
+      window.open(targetUrl, '_blank')
+    }
+  }, [])
 
   const onMessage = useCallback((msg) => {
     switch (msg.type) {
@@ -81,9 +97,18 @@ export default function App() {
           scoreLost: msg.score_lost ?? s.scoreLost }))
         break
       case 'match_end':
-        setState(s => ({ ...s, phase: 'match_end', matchOutcome: msg.outcome,
+        clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => {
+          setState(s => ({ ...s, showToast: false }))
+        }, 10000)
+        setState(s => ({
+          ...s, phase: 'match_end', matchOutcome: msg.outcome,
           scoreWon: msg.score_won ?? s.scoreWon,
-          scoreLost: msg.score_lost ?? s.scoreLost }))
+          scoreLost: msg.score_lost ?? s.scoreLost,
+          reportFile: msg.report_file || s.reportFile,
+          reportUrl: msg.report_url || s.reportUrl,
+          showToast: true,
+        }))
         break
       case 'match_report':
         setState(s => ({ ...s, phase: 'match_end', matchReport: msg }))
@@ -97,7 +122,7 @@ export default function App() {
   const { connected, inMatch, phase, round, map, side,
           scoreWon, scoreLost, preProb, liveProb,
           spikePlanted, kills, matchOutcome, matchReport,
-          buyRecommendation } = state
+          buyRecommendation, reportFile, reportUrl, showToast } = state
 
   if (!connected) return (
     <div className="overlay-root">
@@ -121,8 +146,38 @@ export default function App() {
     if (matchReport) {
       return (
         <div className="overlay-root post-match-root">
+          {showToast && (reportUrl || reportFile) && (
+            <div className="report-toast">
+              <div className="toast-content">
+                <span className="toast-icon">📊</span>
+                <div className="toast-text">
+                  <div className="toast-title">Interactive Report Saved</div>
+                  <div className="toast-sub">Self-contained dashboard with round-by-round charts</div>
+                </div>
+              </div>
+              <div className="toast-actions">
+                <button
+                  className="toast-btn"
+                  onClick={() => openReport(reportUrl, reportFile)}
+                >
+                  OPEN REPORT ↗
+                </button>
+                <button
+                  className="toast-close"
+                  onClick={() => setState(s => ({ ...s, showToast: false }))}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
           <div className="overlay-panel pmr-panel">
-            <PostMatchReport report={matchReport} />
+            <PostMatchReport
+              report={matchReport}
+              reportUrl={reportUrl}
+              reportFile={reportFile}
+              onOpenReport={openReport}
+            />
           </div>
         </div>
       )
@@ -131,9 +186,34 @@ export default function App() {
     const won = matchOutcome === 'victory'
     return (
       <div className="overlay-root">
+        {showToast && (reportUrl || reportFile) && (
+          <div className="report-toast" style={{ pointerEvents: 'auto', marginBottom: 10 }}>
+            <div className="toast-content">
+              <span className="toast-icon">📊</span>
+              <div className="toast-text">
+                <div className="toast-title">Post-Match Report Ready</div>
+              </div>
+            </div>
+            <button
+              className="toast-btn"
+              onClick={() => openReport(reportUrl, reportFile)}
+            >
+              OPEN ↗
+            </button>
+          </div>
+        )}
         <div className={`overlay-panel end-panel ${won ? 'victory' : 'defeat'}`}>
           <span className="end-result">{won ? 'VICTORY' : 'DEFEAT'}</span>
           <span className="end-score">{scoreWon} — {scoreLost}</span>
+          {(reportUrl || reportFile) && (
+            <button
+              className="pmr-open-report-btn"
+              style={{ pointerEvents: 'auto', marginTop: 12 }}
+              onClick={() => openReport(reportUrl, reportFile)}
+            >
+              📊 VIEW FULL REPORT
+            </button>
+          )}
         </div>
       </div>
     )
@@ -158,3 +238,4 @@ export default function App() {
     </div>
   )
 }
+
