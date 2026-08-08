@@ -45,6 +45,15 @@ async def listen():
                 print(f"\n[Pre-Round] Round {data['round']} | {data['map']} | Side: {data['side']} | "
                       f"Score: {data['score_won']}-{data['score_lost']}")
                 print(f"   Probability: {data['prob']}% allies win")
+                if "buy_recommendation" in data and data["buy_recommendation"]:
+                    br = data["buy_recommendation"]
+                    rec = br.get("recommendation", "").upper()
+                    urg = br.get("urgency", "").upper()
+                    print(f"   💰 Buy Rec: [{rec}] ({urg} urgency) — {br.get('reason', '')}")
+                    if br.get("scenarios"):
+                        sc = br["scenarios"]
+                        sc_str = " | ".join([f"{k}: {v['this_round']}% (EV: {v['two_round_ev']}%)" for k, v in sc.items()])
+                        print(f"      Scenarios: {sc_str}")
 
             elif msg_type == "live_update":
                 hs = " (HS)" if data.get("headshot") else ""
@@ -94,7 +103,10 @@ async def listen():
                 print(f"[Server] {data['message']}")
 
 
-async def replay(source_file: Path):
+EVENT_DELAY = 0.05   # seconds between events (0.05 = 20x speed, default as previous)
+
+
+async def replay(source_file: Path, fast: bool = False, delay: float = EVENT_DELAY):
     """Replay a match by writing events incrementally to valorant_game_events.json."""
     if not source_file.exists():
         print(f"Replay file not found: {source_file}")
@@ -113,31 +125,44 @@ async def replay(source_file: Path):
     await asyncio.sleep(2)
 
     written = []
-    batch_size = 25
-    print(f"[Replay] Replaying {len(events)} events fast in batches of {batch_size}...")
-    print("[Replay] Watch the listener terminal for predictions!\n")
+    if fast:
+        batch_size = 25
+        print(f"[Replay] Replaying {len(events)} events fast in batches of {batch_size}...")
+        print("[Replay] Watch the listener terminal for predictions!\n")
 
-    for i, event in enumerate(events):
-        written.append(event)
-        if (i + 1) % batch_size == 0 or (i + 1) == len(events):
+        for i, event in enumerate(events):
+            written.append(event)
+            if (i + 1) % batch_size == 0 or (i + 1) == len(events):
+                with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+                    json.dump(written, f)
+                await asyncio.sleep(0.01)
+
+            if (i + 1) % 1000 == 0:
+                print(f"[Replay] {i + 1}/{len(events)} events written...")
+    else:
+        print(f"[Replay] Replaying {len(events)} events at {1/delay:.0f}x speed (delay={delay}s)...")
+        print("[Replay] Watch the listener terminal for predictions!\n")
+
+        for i, event in enumerate(events):
+            written.append(event)
             with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
                 json.dump(written, f)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(delay)
 
-        if (i + 1) % 1000 == 0:
-            print(f"[Replay] {i + 1}/{len(events)} events written...")
+            if (i + 1) % 500 == 0:
+                print(f"[Replay] {i + 1}/{len(events)} events written...")
 
     print(f"\n[Replay] Done. Wrote {len(written)} events to {OUTPUT_FILE.name}")
 
 
-async def main(match_name: str):
+async def main(match_name: str, fast: bool = False, delay: float = EVENT_DELAY):
     source_file = MATCH_DIR / f"{match_name}.json"
     print(f"Starting test with {match_name} — make sure backend/server.py is running first!\n")
     await asyncio.sleep(1)
 
     await asyncio.gather(
         listen(),
-        replay(source_file),
+        replay(source_file, fast=fast, delay=delay),
     )
 
 
@@ -147,5 +172,13 @@ if __name__ == "__main__":
         "--file", default=DEFAULT_MATCH,
         help=f"Match file stem to replay (default: {DEFAULT_MATCH}). Examples: match4 (defeat), match13 (victory)"
     )
+    parser.add_argument(
+        "--fast", action="store_true", default=False,
+        help="Fast replay mode in batches (for quick post-match report testing)"
+    )
+    parser.add_argument(
+        "--delay", type=float, default=EVENT_DELAY,
+        help=f"Seconds delay per event in normal mode (default: {EVENT_DELAY})"
+    )
     args = parser.parse_args()
-    asyncio.run(main(args.file))
+    asyncio.run(main(args.file, fast=args.fast, delay=args.delay))

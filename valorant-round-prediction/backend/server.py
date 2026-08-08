@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from buy_advisor import BuyAdvisor
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -644,7 +646,7 @@ async def broadcast(message: dict):
 # Main game loop
 # ══════════════════════════════════════════════════════════════════════════════
 
-async def game_loop(predictor: Predictor, watcher: LogWatcher):
+async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyAdvisor):
     state      = global_state
     history    = match_history
     last_phase = ""
@@ -720,9 +722,21 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                             enemy_money=enemy_money,
                         )
 
+                        # Run buy recommendation engine
+                        buy_rec = buy_advisor.recommend(
+                            pre_snap=state.pre_snap,
+                            ally_money=ally_money,
+                            enemy_money=enemy_money,
+                            local_side=state.local_side or "attack",
+                            round_number=max(1, state.round_number),
+                            score_won=state.score_won,
+                            score_lost=state.score_lost,
+                        )
+
                         log.info(
                             f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
-                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost})"
+                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost}) | "
+                            f"Buy: {buy_rec['recommendation'].upper()}"
                         )
                         await broadcast({
                             "type"      : "pre_round",
@@ -732,6 +746,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher):
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                             "prob"      : round(prob * 100, 1),
+                            "buy_recommendation": buy_rec,
                         })
 
                     elif phase == "end":
@@ -863,6 +878,8 @@ async def main():
 
     model_a, model_b = load_models()
     predictor = Predictor(model_a, model_b)
+    advisor   = BuyAdvisor(model_a, A_FEATURES)
+    log.info("💰 Buy recommendation engine initialized")
 
     watch_dir = LOG_WATCH_DIR
     if not watch_dir.exists():
@@ -873,7 +890,7 @@ async def main():
 
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT, process_request=process_request):
         log.info(f"WebSocket server running on ws://{WS_HOST}:{WS_PORT}")
-        await game_loop(predictor, watcher)
+        await game_loop(predictor, watcher, advisor)
 
 
 if __name__ == "__main__":

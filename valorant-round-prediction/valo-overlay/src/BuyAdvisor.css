@@ -1,0 +1,183 @@
+/* ==========================================================================
+   BuyAdvisor — Shopping Phase Recommendation Card
+   Matches overlay dark theme. Auto-hides when combat starts.
+   ========================================================================== */
+
+.buy-advisor {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ally);
+  border-radius: var(--radius);
+  animation: baSlideIn 0.3s ease-out;
+}
+
+@keyframes baSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.ba-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ba-rec-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ba-icon {
+  font-size: 14px;
+}
+
+.ba-rec-label {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ba-rec-eco      { color: #22c55e; }
+.ba-rec-force    { color: #e8c468; }
+.ba-rec-full_buy { color: #4fc3f7; }
+.ba-rec-pistol   { color: var(--text-2); }
+
+.ba-urgency {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+/* ── Reason ──────────────────────────────────────────────────────────────── */
+.ba-reason {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+/* ── Scenario Comparison Bars ────────────────────────────────────────────── */
+.ba-scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius);
+}
+
+.ba-scenario-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.ba-scenario-row.ba-selected {
+  opacity: 1;
+}
+
+.ba-sc-label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.ba-selected .ba-sc-label {
+  color: var(--text-1);
+}
+
+.ba-sc-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ba-sc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--text-3);
+  transition: width 0.4s ease;
+}
+
+.ba-sc-bar-fill.fill-selected {
+  background: linear-gradient(90deg, rgba(79, 195, 247, 0.7), #4fc3f7);
+  box-shadow: 0 0 6px rgba(79, 195, 247, 0.4);
+}
+
+.ba-sc-pct {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ba-selected .ba-sc-pct {
+  color: var(--text-1);
+}
+
+.ba-sc-ev {
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: var(--text-3);
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ba-selected .ba-sc-ev {
+  color: var(--gold);
+}
+
+/* ── Context ─────────────────────────────────────────────────────────────── */
+.ba-context {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-3);
+  font-style: italic;
+  margin-bottom: 6px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Economy Row ─────────────────────────────────────────────────────────── */
+.ba-econ-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.ba-econ-ally strong {
+  color: var(--ally);
+  font-weight: 600;
+}
+
+.ba-econ-enemy strong {
+  color: var(--enemy);
+  font-weight: 600;
+}
