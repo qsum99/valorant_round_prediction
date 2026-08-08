@@ -1,29 +1,20 @@
 import {
   OWGames,
   OWGameListener,
-  OWGamesEvents,
   OWWindow,
   OWHotkeys
 } from '@overwolf/overwolf-api-ts';
 
-import { kWindowNames, kGameClassIds, kGamesFeatures, kHotkeys } from "../consts";
-import { GameStateManager } from "./GameState";
+import { kWindowNames, kGameClassIds, kHotkeys } from "../consts";
 
 import RunningGameInfo = overwolf.games.RunningGameInfo;
 import AppLaunchTriggeredEvent = overwolf.extensions.AppLaunchTriggeredEvent;
-import WindowState = overwolf.windows.WindowStateEx;
 
-// The background controller holds all of the app's background logic - hence its name. it has
-// many possible use cases, for example sharing data between windows, or, in our case,
-// managing which window is currently presented to the user. To that end, it holds a dictionary
-// of the windows available in the app.
-// Our background controller implements the Singleton design pattern, since only one
-// instance of it should exist.
+// The background controller holds all of the app's background logic.
 class BackgroundController {
   private static _instance: BackgroundController;
   private _windows: Record<string, OWWindow> = {};
   private _gameListener: OWGameListener;
-  private _gameEventsListener: OWGamesEvents;
 
   private constructor() {
     // Populating the background controller's window dictionary
@@ -40,50 +31,31 @@ class BackgroundController {
       e => this.onAppLaunchTriggered(e)
     );
 
-    // Global hotkey handler for Ctrl+F (show/hide overlay)
+    // Global hotkey handler for Ctrl+F (show/hide overlay or desktop window)
     OWHotkeys.onHotkeyDown(kHotkeys.toggle, async (res) => {
       console.log('Hotkey pressed in background controller:', res);
-      await this.toggleInGameWindow();
+      await this.toggleActiveWindow();
     });
   };
 
-  private async toggleInGameWindow() {
+  private async toggleActiveWindow() {
     try {
-      const inGameWindow = this._windows[kWindowNames.inGame];
-      if (!inGameWindow) return;
-      const state = await inGameWindow.getWindowState();
+      const isGameRunning = await this.isSupportedGameRunning();
+      const targetWindowName = isGameRunning ? kWindowNames.inGame : kWindowNames.desktop;
+      const targetWindow = this._windows[targetWindowName];
+      if (!targetWindow) return;
+
+      const state = await targetWindow.getWindowState();
       const stateStr = String((state as any).window_state_ex || (state as any).window_state || '').toLowerCase();
-      console.log('Current in_game window state:', stateStr);
+      console.log(`Current ${targetWindowName} window state:`, stateStr);
+
       if (stateStr === 'normal' || stateStr === 'maximized') {
-        await inGameWindow.minimize();
+        await targetWindow.minimize();
       } else {
-        await inGameWindow.restore();
+        await targetWindow.restore();
       }
     } catch (e) {
-      console.error('Error toggling in-game window:', e);
-    }
-  }
-
-  private async startDataCollection(classId: number) {
-    this.stopDataCollection();
-
-    const gameFeatures = kGamesFeatures.get(classId);
-    if (gameFeatures && gameFeatures.length) {
-      this._gameEventsListener = new OWGamesEvents(
-        {
-          onInfoUpdates: (info) => GameStateManager.instance().handleInfoUpdate(info),
-          onNewEvents: (e) => GameStateManager.instance().handleNewEvents(e)
-        },
-        gameFeatures
-      );
-      this._gameEventsListener.start();
-    }
-  }
-
-  private stopDataCollection() {
-    if (this._gameEventsListener) {
-      this._gameEventsListener.stop();
-      this._gameEventsListener = null;
+      console.error('Error toggling active window:', e);
     }
   }
 
@@ -106,13 +78,6 @@ class BackgroundController {
       : kWindowNames.desktop;
 
     this._windows[currWindowName].restore();
-
-    if (currWindowName === kWindowNames.inGame) {
-      const info = await OWGames.getRunningGameInfo();
-      if (info && info.isRunning) {
-        this.startDataCollection(info.classId);
-      }
-    }
   }
 
   private async onAppLaunchTriggered(e: AppLaunchTriggeredEvent) {
@@ -139,11 +104,9 @@ class BackgroundController {
     if (info.isRunning) {
       this._windows[kWindowNames.desktop].close();
       this._windows[kWindowNames.inGame].restore();
-      this.startDataCollection(info.classId);
     } else {
       this._windows[kWindowNames.desktop].restore();
       this._windows[kWindowNames.inGame].close();
-      this.stopDataCollection();
     }
   }
 

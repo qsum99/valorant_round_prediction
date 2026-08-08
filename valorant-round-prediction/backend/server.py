@@ -20,6 +20,7 @@ import os
 import pickle
 import time
 import logging
+import webbrowser
 import websockets
 from pathlib import Path
 
@@ -896,71 +897,193 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             "score_lost": state.score_lost,
                         })
 
-                    elif phase == "game_end":
-                        outcome = state.raw.get("match_outcome", "")
-                        if not outcome or outcome == "unknown":
-                            if state.score_won > state.score_lost or state.score_won >= 13:
-                                outcome = "victory"
-                            elif state.score_lost > state.score_won or state.score_lost >= 13:
-                                outcome = "defeat"
-                            else:
-                                outcome = "victory" if state.score_won >= state.score_lost else "defeat"
-                        log.info(f"🏁 Match ended — {outcome}")
+async def finalize_and_broadcast_match_end(state: RoundState, history: MatchHistory, report_generator: ReportGenerator, outcome_override: str = ""):
+    global last_match_end_payload, last_match_report_payload
 
-                        # Finalize the last round now that scores are final
+    outcome = outcome_override or state.raw.get("match_outcome", "")
+    if not outcome or outcome == "unknown":
+        if state.score_won > state.score_lost or state.score_won >= 13:
+            outcome = "victory"
+        elif state.score_lost > state.score_won or state.score_lost >= 13:
+            outcome = "defeat"
+        else:
+            outcome = "victory" if state.score_won >= state.score_lost else "defeat"
+    log.info(f"🏁 Match ended — {outcome} (Final Score: {state.score_won}-{state.score_lost})")
+
+    # Finalize the last round now that scores are final
+    if history._current_round:
+        last_won = state.score_won > state.prev_score_won
+        history.record_round_end(
+            round_num=history._current_round.get("round_number", 0),
+            score_won=state.score_won,
+            score_lost=state.score_lost,
+            won=last_won,
+            final_prob=state.live_prob,
+        )
+
+    # Generate standalone HTML report
+    report_file, report_url = None, ""
+    try:
+        report_data = history.get_report_data(
+            map_name=state.map_name or "Valorant",
+            outcome=outcome,
+            final_score_won=state.score_won,
+            final_score_lost=state.score_lost,
+            local_agent=state.local_agent,
+            local_player_name=state.local_player_name,
+        )
+        if report_data and report_data.get("rounds"):
+            report_file = report_generator.generate(report_data)
+            if report_file:
+                report_url = f"file:///{Path(report_file).resolve().as_posix()}"
+    except Exception as e:
+        log.error(f"Error generating standalone HTML report: {e}", exc_info=True)
+
+    # Generate legacy JSON post-match report payload
+    report = history.generate_report(
+        map_name=state.map_name or "Valorant",
+        outcome=outcome,
+        final_score_won=state.score_won,
+        final_score_lost=state.score_lost,
+    )
+    if report:
+        report["report_file"] = report_file
+        report["report_url"]  = report_url
+
+    last_match_end_payload = {
+        "type"       : "match_end",
+        "outcome"    : outcome,
+        "score_won"  : state.score_won,
+        "score_lost" : state.score_lost,
+        "report_file": report_file,
+        "report_url" : report_url,
+    }
+    last_match_report_payload = report
+
+    await broadcast(last_match_end_payload)
+    if report:
+        log.info(f"📊 Post-match report: {len(report.get('rounds', []))} rounds | HTML saved: {report_file}")
+        await broadcast(report)
+
+    # Automatically open the interactive report in default web browser
+    if report_file and os.path.exists(report_file):
+        try:
+            abs_url = f"file:///{Path(report_file).resolve().as_posix()}"
+            webbrowser.open(abs_url)
+            log.info(f"🌐 Opened post-match report in browser: {abs_url}")
+        except Exception as e:
+            log.warning(f"Could not open browser report: {e}")
+
+    state.reset()
+    history.reset()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Main game loop
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def game_loop(watcher: LogWatcher, predictor: Predictor, buy_advisor: BuyAdvisor, report_generator: ReportGenerator):
+    state   = global_state
+    history = match_history
+    last_phase = ""
+
+    log.info("👀 Watching for game events...")
+
+    while True:
+        entries = watcher.get_new_entries()
+
+        for item in entries:
+            event_type = item.get("type")
+
+            # ── Info update: phase changes, round snapshot ────────────────
+            if event_type == "info":
+                state.update_from_info(item.get("data", {}))
+                mi    = item.get("data", {}).get("match_info", {})
+                phase = mi.get("round_phase")
+
+                if phase and phase != last_phase:
+                    last_phase = phase
+
+                    if phase in ("shopping", "start", "buy") or (phase == "combat" and not state.pre_snap):
+                        # FIRST: finalize the PREVIOUS round now that scores are updated
+                        # (Overwolf updates the score between rounds, not at round end)
                         if history._current_round:
-                            last_won = state.score_won > state.prev_score_won
+                            prev_won = state.score_won > state.prev_score_won
                             history.record_round_end(
                                 round_num=history._current_round.get("round_number", 0),
                                 score_won=state.score_won,
                                 score_lost=state.score_lost,
-                                won=last_won,
+                                won=prev_won,
                                 final_prob=state.live_prob,
                             )
 
-                        # Generate standalone HTML report
-                        report_data = history.get_report_data(
-                            map_name=state.map_name,
-                            outcome=outcome,
-                            final_score_won=state.score_won,
-                            final_score_lost=state.score_lost,
-                            local_agent=state.local_agent,
-                            local_player_name=state.local_player_name,
+                        state.capture_pre_round_snapshot()
+                        prob = predictor.predict_pre_round(state.pre_snap)
+                        state.pre_round_prob = prob
+                        state.live_prob      = prob
+
+                        # Snapshot current scores for detecting next round's result
+                        state.prev_score_won  = state.score_won
+                        state.prev_score_lost = state.score_lost
+
+                        ally_money  = state.pre_snap.get("att_money", 0) if state.local_side == "attack" else state.pre_snap.get("def_money", 0)
+                        enemy_money = state.pre_snap.get("def_money", 0) if state.local_side == "attack" else state.pre_snap.get("att_money", 0)
+
+                        # Run buy recommendation engine
+                        buy_rec = buy_advisor.recommend(
+                            pre_snap=state.pre_snap,
+                            ally_money=ally_money,
+                            enemy_money=enemy_money,
+                            local_side=state.local_side or "attack",
+                            round_number=max(1, state.round_number),
+                            score_won=state.score_won,
+                            score_lost=state.score_lost,
                         )
-                        report_file = report_generator.generate(report_data)
-                        report_url = f"file:///{report_file.replace('\\\\', '/')}" if report_file else ""
+                        state.last_buy_rec = buy_rec
 
-                        # Generate legacy JSON post-match report payload
-                        report = history.generate_report(
-                            map_name=state.map_name,
-                            outcome=outcome,
-                            final_score_won=state.score_won,
-                            final_score_lost=state.score_lost,
+                        # Record for post-match report
+                        history.on_shopping_phase(
+                            round_num=max(1, state.round_number),
+                            side=state.local_side or "attack",
+                            score_won=state.score_won,
+                            score_lost=state.score_lost,
+                            pre_prob=prob,
+                            ally_money=ally_money,
+                            enemy_money=enemy_money,
+                            buy_rec=buy_rec,
                         )
-                        if report:
-                            report["report_file"] = report_file
-                            report["report_url"]  = report_url
 
-                        global last_match_end_payload, last_match_report_payload
-                        last_match_end_payload = {
-                            "type"       : "match_end",
-                            "outcome"    : outcome,
-                            "score_won"  : state.score_won,
-                            "score_lost" : state.score_lost,
-                            "report_file": report_file,
-                            "report_url" : report_url,
-                        }
-                        last_match_report_payload = report
+                        log.info(
+                            f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
+                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost}) | "
+                            f"Buy: {buy_rec['recommendation'].upper()}"
+                        )
+                        await broadcast({
+                            "type"      : "pre_round",
+                            "round"     : max(1, state.round_number),
+                            "map"       : state.map_name,
+                            "side"      : state.local_side or "attack",
+                            "score_won" : state.score_won,
+                            "score_lost": state.score_lost,
+                            "prob"      : round(prob * 100, 1),
+                            "buy_recommendation": buy_rec,
+                        })
 
-                        await broadcast(last_match_end_payload)
-                        if report:
-                            log.info(f"📊 Post-match report: {len(report['rounds'])} rounds | HTML saved: {report_file}")
-                            await broadcast(report)
-                        state.reset()
-                        history.reset()
+                    elif phase == "end":
+                        # Just broadcast round_end — actual win/loss is determined
+                        # at the start of the next round when scores are updated
+                        await broadcast({
+                            "type"      : "round_end",
+                            "round"     : max(1, state.round_number),
+                            "score_won" : state.score_won,
+                            "score_lost": state.score_lost,
+                        })
+
+                    elif phase in ("game_end", "match_end"):
+                        await finalize_and_broadcast_match_end(state, history, report_generator)
                         last_phase = ""
 
-            # ── Event: kill_feed, spike, match_start ───────────────────────
+            # ── Event: kill_feed, spike, match_start, match_end ────────────
             elif event_type == "event":
                 for ev in item.get("data", {}).get("events", []):
                     name = ev.get("name")
@@ -1031,6 +1154,10 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         history.reset()
                         last_phase = ""
                         await broadcast({"type": "match_start"})
+
+                    elif name in ("match_end", "matchEnd"):
+                        await finalize_and_broadcast_match_end(state, history, report_generator)
+                        last_phase = ""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
