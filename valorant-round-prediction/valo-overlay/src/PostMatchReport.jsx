@@ -389,40 +389,39 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               </div>
             </>
           )}
+        </div>
+
+        <div className="pmr-header-actions">
           {rounds.length > 0 && (
-            <>
-              <div className="meta-divider" />
-              <button
-                type="button"
-                className="pmr-header-action-btn pmr-dl-btn"
-                onClick={() => exportPng(containerRef.current, `${baseName}.png`)}
-                disabled={!!busy}
-                title="Download this report as a PNG image"
-              >
-                {busy ? '…' : '⭳ PNG'}
-              </button>
-              <button
-                type="button"
-                className="pmr-header-action-btn pmr-dl-csv-btn"
-                onClick={exportCsv}
-                disabled={!!busy}
-                title="Download round-by-round breakdown as CSV"
-              >
-                ⭳ CSV
-              </button>
-            </>
+            <button
+              type="button"
+              className="pmr-header-action-btn pmr-dl-btn"
+              onClick={() => exportPng(containerRef.current, `${baseName}.png`)}
+              disabled={!!busy}
+              title="Download this report as a PNG image"
+            >
+              {busy ? '…' : '⭳ PNG'}
+            </button>
+          )}
+          {rounds.length > 0 && (
+            <button
+              type="button"
+              className="pmr-header-action-btn pmr-dl-csv-btn"
+              onClick={exportCsv}
+              disabled={!!busy}
+              title="Download round-by-round breakdown as CSV"
+            >
+              ⭳ CSV
+            </button>
           )}
           {(reportUrl || reportFile) && onOpenReport && (
-            <>
-              <div className="meta-divider" />
-              <button
-                className="pmr-header-action-btn"
-                onClick={() => onOpenReport(reportUrl, reportFile)}
-                title="Open standalone interactive dashboard in browser"
-              >
-                📊 FULL REPORT ↗
-              </button>
-            </>
+            <button
+              className="pmr-header-action-btn"
+              onClick={() => onOpenReport(reportUrl, reportFile)}
+              title="Open standalone interactive dashboard in browser"
+            >
+              📊 FULL REPORT ↗
+            </button>
           )}
         </div>
       </div>
