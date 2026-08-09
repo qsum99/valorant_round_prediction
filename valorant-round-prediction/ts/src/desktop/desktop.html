@@ -7,328 +7,80 @@
   <link rel="stylesheet" href="../../css/header.css" />
   <link rel="stylesheet" href="../../css/desktop.css" />
   <link rel="stylesheet" href="../../css/modal.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
-  <title>Valorant Win Predictor - Desktop Dashboard</title>
-  <style>
-    :root {
-      --bg: #0f1923;
-      --surface: #1a2332;
-      --surface-hover: #232f42;
-      --border: rgba(255, 255, 255, 0.08);
-      --border-bright: rgba(255, 255, 255, 0.16);
-      --teal: #00e5cc;
-      --teal-dim: rgba(0, 229, 204, 0.15);
-      --red: #ff4655;
-      --text: #ece8e1;
-      --text-muted: #8b978f;
-    }
-    body.desktop {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 0;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .app-header {
-      background: rgba(15, 25, 35, 0.95);
-      border-bottom: 1px solid var(--border);
-      height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      -webkit-app-region: drag;
-    }
-    .app-header h1 {
-      font-family: 'Rajdhani', sans-serif;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--text);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .app-header h1::before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background: var(--teal);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--teal);
-    }
-    .window-controls-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      -webkit-app-region: no-drag;
-    }
-    .win-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 28px;
-      height: 28px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    .win-btn:hover {
-      background: var(--surface-hover);
-      color: var(--text);
-      border-color: var(--border-bright);
-    }
-    .win-btn.close:hover {
-      background: var(--red);
-      color: #fff;
-      border-color: var(--red);
-    }
-    main {
-      flex: 1;
-      padding: 24px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .hero-banner {
-      background: linear-gradient(135deg, rgba(0, 229, 204, 0.08) 0%, rgba(255, 70, 85, 0.04) 100%), var(--surface);
-      border: 1px solid var(--border-bright);
-      border-radius: 12px;
-      padding: 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .hero-title {
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #fff;
-      margin: 0 0 6px 0;
-    }
-    .hero-subtitle {
-      color: var(--text-muted);
-      font-size: 13px;
-      margin: 0;
-    }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      background: rgba(0, 229, 204, 0.12);
-      border: 1px solid rgba(0, 229, 204, 0.3);
-      color: var(--teal);
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--teal);
-      box-shadow: 0 0 8px var(--teal);
-    }
-    .status-dot.disconnected {
-      background: var(--red);
-      box-shadow: 0 0 8px var(--red);
-    }
-    .status-badge.disconnected {
-      background: rgba(255, 70, 85, 0.12);
-      border-color: rgba(255, 70, 85, 0.3);
-      color: var(--red);
-    }
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 20px;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-    }
-    .card-title {
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #fff;
-      margin: 0 0 14px 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .btn-action {
-      background: var(--teal);
-      color: #0f1923;
-      border: none;
-      border-radius: 6px;
-      padding: 10px 18px;
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
-      text-decoration: none;
-    }
-    .btn-action:hover {
-      background: #00ffea;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 229, 204, 0.3);
-    }
-    .btn-secondary {
-      background: var(--surface-hover);
-      color: var(--text);
-      border: 1px solid var(--border-bright);
-    }
-    .btn-secondary:hover {
-      background: #2e3d54;
-      color: #fff;
-      box-shadow: none;
-    }
-    .hotkey-tag {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-family: monospace;
-      font-size: 12px;
-      color: var(--teal);
-    }
-    .feature-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    .feature-icon {
-      font-size: 18px;
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .feature-text h4 {
-      margin: 0 0 2px 0;
-      font-size: 13px;
-      color: #fff;
-    }
-    .feature-text p {
-      margin: 0;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .report-preview-box {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px dashed var(--border-bright);
-      border-radius: 8px;
-      padding: 16px;
-      text-align: center;
-    }
-  </style>
+  <title>Overwolf Sample App - Desktop page</title>
 </head>
 
 <body class="desktop">
   <!-- -------------------------------- Header ------------------------------- -->
+
   <header id="header" class="app-header">
-    <h1>Valorant Win Predictor</h1>
+    <img src="../../img/header_icon.svg" />
+    <h1>Sample App / desktop window</h1>
     <div class="window-controls-group">
-      <button id="minimizeButton" class="win-btn" title="Minimize">−</button>
-      <button id="maximizeButton" class="win-btn" title="Maximize">□</button>
-      <button id="closeButton" class="win-btn close" title="Close">✕</button>
+      <button id="minimizeButton" class="window-control window-control-minimize" />
+      <button id="maximizeButton" class="window-control window-control-maximize" />
+      <button id="closeButton" class="window-control window-control-close" />
     </div>
   </header>
 
   <!-- --------------------------------- Main -------------------------------- -->
   <main>
-    <div class="hero-banner">
-      <div>
-        <h2 class="hero-title">AI Match Companion & Post-Match Reports</h2>
-        <p class="hero-subtitle">Real-time win probability, buy advisor, and match analytics dashboard.</p>
-      </div>
-      <div id="connectionBadge" class="status-badge">
-        <span id="statusDot" class="status-dot"></span>
-        <span id="statusText">Connecting to Backend...</span>
-      </div>
+    <div class="desktopTop">
+      <h1>Overwolf Sample App</h1>
+      <p>
+        Welcome to the Overwolf tutorial app for developers.<br />
+        Learn how to build an app by using one!
+      </p>
+      <div id="version"></div>
     </div>
-
-    <div class="dashboard-grid">
-      <!-- Post Match Reports Hub Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>📊 Match Reports & Analytics</span>
-        </div>
-        <div id="latestReportContainer" class="report-preview-box">
-          <p id="latestReportText" style="color: var(--text-muted); margin: 0 0 12px 0; font-size: 13px;">
-            No post-match reports recorded yet in this session.
-          </p>
-          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <button id="btnOpenLatestReport" class="btn-action" style="display: none;">
-              Open Latest Report
-            </button>
-            <button id="btnOpenReportsHub" class="btn-action btn-secondary">
-              Open Reports Hub
-            </button>
-          </div>
-        </div>
+    <div class="desktopBottom">
+      <!-- Launch a game! -->
+      <div id="left">
+        <h1>
+          Launch a game and the In-Game window will pop-up automatically!
+        </h1>
       </div>
-
-      <!-- Controls & Quick Tips Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>⚡ Live Features & Controls</span>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">⌨️</div>
-          <div class="feature-text">
-            <h4>Toggle Overlay <span class="hotkey-tag">Ctrl+F</span></h4>
-            <p>Press Ctrl+F in-game to show or hide the live HUD.</p>
-          </div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">💰</div>
-          <div class="feature-text">
-            <h4>Buy Advisor</h4>
-            <p>Provides Full Buy, Force, Eco, or Pistol recommendations during shopping phase.</p>
-          </div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">🎯</div>
-          <div class="feature-text">
-            <h4>Real-time Win Rate</h4>
-            <p>Live probability updates on every kill, spike plant, and round phase.</p>
+      <!-- Launch a game! -->
+      <div id="middle">
+        What can you learn with this sample app?
+        <br /><br />
+        1. How to listen to real-time game events and how to identify specific
+        events like match start/end, kill, and death.
+        <br /><br />
+        2. How to use a transparent background window as a service bus, that
+        acts as the main controller of your app.
+        <br /><br />
+        3. How to use Hotkeys that show/hide your app while you are in-game.
+      </div>
+      <!-- picture -->
+      <div id="right">
+        <div style="text-align: center">
+          <div style="display: inline-block">
+            <img src="../../img/cool_wolf.png" />
           </div>
         </div>
       </div>
     </div>
   </main>
+
+  <script>
+    // Standard Google Universal Analytics code
+    (function (i, s, o, g, r, a, m) {
+      i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+        (i[r].q = i[r].q || []).push(arguments)
+      },
+        i[r].l = 1 * new Date(); a = s.createElement(o),
+          m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+      // Note: https protocol here
+    })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+
+    ga('create', 'UA-144253676-3', 'auto');
+
+    // Removes failing protocol check. @see: http://stackoverflow.com/a/22152353/1958200
+    ga('set', 'checkProtocolTask', function () { });
+    ga('require', 'displayfeatures');
+    ga('send', 'pageview', '/desktop.html');
+  </script>
 </body>
 
 </html>

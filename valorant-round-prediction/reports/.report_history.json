@@ -1,55 +1,5 @@
 [
   {
-    "filename": "match_Split_victory_2026-08-09_23eb317a.html",
-    "date": "2026-08-09",
-    "map": "Split",
-    "outcome": "VICTORY",
-    "score": "0 - 0",
-    "agent": "None",
-    "accuracy": "100.0%",
-    "rounds": 1
-  },
-  {
-    "filename": "match_Split_victory_2026-08-09_bd02df2c.html",
-    "date": "2026-08-09",
-    "map": "Split",
-    "outcome": "VICTORY",
-    "score": "0 - 0",
-    "agent": "None",
-    "accuracy": "100.0%",
-    "rounds": 1
-  },
-  {
-    "filename": "match_Split_defeat_2026-08-09_89fd4484.html",
-    "date": "2026-08-09",
-    "map": "Split",
-    "outcome": "DEFEAT",
-    "score": "8 - 13",
-    "agent": "Gumshoe",
-    "accuracy": "71.4%",
-    "rounds": 21
-  },
-  {
-    "filename": "match_Haven_victory_2026-08-09_14c8ebe3.html",
-    "date": "2026-08-09",
-    "map": "Haven",
-    "outcome": "VICTORY",
-    "score": "13 - 5",
-    "agent": "Gumshoe",
-    "accuracy": "50.0%",
-    "rounds": 18
-  },
-  {
-    "filename": "match_Ascent_victory_2026-08-09_9b5d458e.html",
-    "date": "2026-08-09",
-    "map": "Ascent",
-    "outcome": "VICTORY",
-    "score": "13 - 4",
-    "agent": "Gumshoe",
-    "accuracy": "55.6%",
-    "rounds": 18
-  },
-  {
     "filename": "match_Pearl_defeat_2026-08-08_c785281f.html",
     "date": "2026-08-08",
     "map": "Pearl",
