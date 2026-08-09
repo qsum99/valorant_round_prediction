@@ -35,12 +35,11 @@ DEFAULT_MATCH = "match4"  # defeat (11-13)
 
 async def listen():
     """Print all messages received from the backend."""
-    try:
-        async with websockets.connect(WS_URL) as ws:
-            print(f"[Listener] Connected to {WS_URL}")
-            async for msg in ws:
-                data = json.loads(msg)
-                msg_type = data.get("type", "?")
+    async with websockets.connect(WS_URL) as ws:
+        print(f"[Listener] Connected to {WS_URL}")
+        async for msg in ws:
+            data = json.loads(msg)
+            msg_type = data.get("type", "?")
 
             if msg_type == "pre_round":
                 print(f"\n[Pre-Round] Round {data['round']} | {data['map']} | Side: {data['side']} | "
@@ -72,8 +71,6 @@ async def listen():
             elif msg_type == "match_end":
                 print(f"\n[Match End] {data.get('outcome', '?')}")
                 print(f"   Final score: {data['score_won']}-{data['score_lost']}")
-                if "report_file" in data:
-                    print(f"   📄 HTML Report saved: {data['report_file']}")
 
             elif msg_type == "match_report":
                 print(f"\n{'='*60}")
@@ -104,8 +101,6 @@ async def listen():
 
             elif msg_type == "connected":
                 print(f"[Server] {data['message']}")
-    except (websockets.exceptions.ConnectionClosed, ConnectionResetError, OSError):
-        pass
 
 
 EVENT_DELAY = 0.05   # seconds between events (0.05 = 20x speed, default as previous)
