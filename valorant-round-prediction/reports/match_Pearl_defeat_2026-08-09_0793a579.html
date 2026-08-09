@@ -1,0 +1,3825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Valorant Post-Match Report</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg:             #0f1923;
+      --surface:        #1a2332;
+      --surface2:       #242f3d;
+      --surface-hover:  #2c394b;
+      --border:         rgba(255, 255, 255, 0.08);
+      --border-bright:  rgba(255, 255, 255, 0.16);
+      --teal:           #00e5cc;
+      --teal-dim:       rgba(0, 229, 204, 0.15);
+      --teal-glow:      rgba(0, 229, 204, 0.35);
+      --red:            #ff4655;
+      --red-dim:        rgba(255, 70, 85, 0.15);
+      --red-glow:       rgba(255, 70, 85, 0.35);
+      --gold:           #e8c468;
+      --gold-dim:       rgba(232, 196, 104, 0.15);
+      --text-1:         #ecedee;
+      --text-2:         #8fa3b1;
+      --text-3:         #4a5c6a;
+      --font-display:   'Rajdhani', sans-serif;
+      --font-body:      'Inter', sans-serif;
+      --radius-sm:      4px;
+      --radius-md:      8px;
+      --radius-lg:      12px;
+      --shadow:         0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-1);
+      font-family: var(--font-body);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: flex;
+      justify-content: center;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 229, 204, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(255, 70, 85, 0.03) 0%, transparent 40%);
+    }
+
+    .report-container {
+      width: 100%;
+      max-width: 1140px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Typography & Section Headers ───────────────────────────────────── */
+    h1, h2, h3, h4, .stat-value, .badge, .display-font {
+      font-family: var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .section-label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--text-3);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Common Card Style ──────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    /* ── Section 1: Match Header ────────────────────────────────────────── */
+    .match-header-card {
+      padding: 24px 28px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+      border-left: 6px solid var(--text-3);
+    }
+
+    .match-header-card.victory {
+      border-left-color: var(--teal);
+      background: linear-gradient(90deg, rgba(0, 229, 204, 0.08) 0%, var(--surface) 40%);
+    }
+
+    .match-header-card.defeat {
+      border-left-color: var(--red);
+      background: linear-gradient(90deg, rgba(255, 70, 85, 0.08) 0%, var(--surface) 40%);
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .outcome-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .outcome-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.08em;
+    }
+
+    .outcome-title.victory {
+      color: var(--teal);
+      text-shadow: 0 0 20px var(--teal-glow);
+    }
+
+    .outcome-title.defeat {
+      color: var(--red);
+      text-shadow: 0 0 20px var(--red-glow);
+    }
+
+    .final-score {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--text-1);
+      letter-spacing: 0.05em;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    .meta-pill {
+      background: var(--surface2);
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .meta-pill strong {
+      color: var(--text-1);
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      min-width: 140px;
+      text-align: right;
+    }
+
+    .header-stat-label {
+      font-size: 10px;
+      font-family: var(--font-display);
+      letter-spacing: 0.1em;
+      color: var(--text-3);
+      text-transform: uppercase;
+    }
+
+    .header-stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-1);
+      font-family: var(--font-display);
+    }
+
+    .header-stat-sub {
+      font-size: 11px;
+      color: var(--text-2);
+    }
+
+    /* ── Section 2: Win Probability Chart ───────────────────────────────── */
+    .chart-container {
+      position: relative;
+      height: 260px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .chart-legend {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--text-2);
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    .legend-dot.won { background: var(--teal); }
+    .legend-dot.lost { background: var(--red); }
+
+    /* ── Section 3: Two Column Layout ───────────────────────────────────── */
+    .two-col-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) {
+      .two-col-grid { grid-template-columns: 1fr; }
+      .match-header-card { grid-template-columns: 1fr; }
+      .header-stat-box { text-align: left; }
+    }
+
+    /* Pivotal rounds cards */
+    .pivotal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .pivotal-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-left: 4px solid var(--text-3);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .pivotal-card:hover {
+      background: var(--surface-hover);
+      transform: translateX(2px);
+    }
+
+    .pivotal-card.won { border-left-color: var(--teal); }
+    .pivotal-card.lost { border-left-color: var(--red); }
+
+    .pivotal-badge {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .pivotal-badge.won {
+      background: var(--teal-dim);
+      color: var(--teal);
+      border: 1px solid var(--teal);
+    }
+
+    .pivotal-badge.lost {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid var(--red);
+    }
+
+    .pivotal-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .pivotal-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pivotal-reason {
+      font-size: 11px;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pivotal-swing {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .pivotal-swing.won { color: var(--teal); }
+    .pivotal-swing.lost { color: var(--red); }
+
+    /* Economy 2x2 Grid */
+    .econ-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .econ-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .econ-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .econ-type {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      letter-spacing: 0.08em;
+    }
+
+    .econ-record {
+      font-size: 11px;
+      color: var(--text-3);
+      font-family: var(--font-display);
+    }
+
+    .econ-wr {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-1);
+      line-height: 1.1;
+    }
+
+    .econ-bar-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .econ-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--teal);
+    }
+
+    .econ-bar-fill.low { background: var(--red); }
+    .econ-bar-fill.mid { background: var(--gold); }
+
+    .econ-insight {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-2);
+      font-style: italic;
+    }
+
+    /* ── Section 4: Live Probability Timeline (Model B) ─────────────────── */
+    .sparklines-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+      gap: 8px;
+    }
+
+    .spark-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .spark-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-bright);
+      transform: translateY(-2px);
+    }
+
+    .spark-card.active {
+      border-color: var(--teal);
+      box-shadow: 0 0 10px var(--teal-dim);
+    }
+
+    .spark-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-3);
+    }
+
+    .spark-res {
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 9px;
+    }
+
+    .spark-res.won { background: var(--teal-dim); color: var(--teal); }
+    .spark-res.lost { background: var(--red-dim); color: var(--red); }
+
+    .spark-canvas-wrap {
+      height: 38px;
+      width: 100%;
+      position: relative;
+    }
+
+    .spark-no-data {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--text-3);
+      font-style: italic;
+    }
+
+    /* Live Round Detail Drawer */
+    .round-detail-drawer {
+      margin-top: 14px;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      display: none;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .drawer-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+
+    .kill-feed-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .kill-feed-table th {
+      text-align: left;
+      font-family: var(--font-display);
+      font-size: 10px;
+      color: var(--text-3);
+      letter-spacing: 0.1em;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .kill-feed-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      color: var(--text-2);
+    }
+
+    .kill-feed-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .kf-attacker { color: var(--text-1); font-weight: 600; }
+    .kf-victim { color: var(--text-2); }
+    .kf-prob { font-family: var(--font-display); font-weight: 700; color: var(--text-1); }
+
+    /* ── Section 5: Round Breakdown Table ───────────────────────────────── */
+    .table-responsive {
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+
+    .round-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .round-table th {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: 0.12em;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .round-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-2);
+      white-space: nowrap;
+    }
+
+    .round-table tr:hover td {
+      background: var(--surface-hover);
+    }
+
+    .rnd-num {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+
+    /* Badges & Chips */
+    .chip {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      text-transform: uppercase;
+      display: inline-block;
+    }
+
+    .chip-atk { background: rgba(255, 70, 85, 0.15); color: #ff858d; border: 1px solid rgba(255, 70, 85, 0.3); }
+    .chip-def { background: rgba(79, 195, 247, 0.15); color: #81d4fa; border: 1px solid rgba(79, 195, 247, 0.3); }
+
+    .chip-pistol   { background: rgba(255, 255, 255, 0.08); color: var(--text-2); }
+    .chip-eco      { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .chip-force    { background: rgba(232, 196, 104, 0.15); color: var(--gold); border: 1px solid rgba(232, 196, 104, 0.3); }
+    .chip-full_buy { background: rgba(0, 229, 204, 0.15); color: var(--teal); border: 1px solid rgba(0, 229, 204, 0.3); }
+
+    .chip-match { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .chip-differ { background: rgba(232, 196, 104, 0.15); color: var(--gold); }
+
+    .prob-val {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .prob-high { color: var(--teal); }
+    .prob-mid  { color: var(--gold); }
+    .prob-low  { color: var(--red); }
+
+    .swing-val {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .swing-pos { color: var(--teal); }
+    .swing-neg { color: var(--red); }
+
+    /* ── Section 6: Footer ──────────────────────────────────────────────── */
+    .report-footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-3);
+      padding: 16px 0 32px 0;
+      letter-spacing: 0.05em;
+    }
+
+    .report-footer strong {
+      color: var(--text-2);
+    }
+  </style>
+</head>
+<body>
+
+<div class="report-container">
+
+  <!-- SECTION 1: MATCH HEADER CARD -->
+  <div class="card match-header-card" id="matchHeaderCard">
+    <div class="header-left">
+      <div class="outcome-row">
+        <div class="outcome-title" id="outcomeTitle">VICTORY</div>
+        <div class="final-score" id="finalScoreDisplay">13 — 8</div>
+      </div>
+      <div class="header-meta">
+        <div class="meta-pill">🗺️ Map: <strong id="mapNameDisplay">Ascent</strong></div>
+        <div class="meta-pill">📅 Date: <strong id="dateDisplay">2026-08-08</strong></div>
+        <div class="meta-pill">🎭 Agent: <strong id="agentDisplay">Raze</strong></div>
+        <div class="meta-pill">🎯 Model A: <strong id="modelAccDisplay">76.9% Acc</strong></div>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat-box">
+        <div class="header-stat-label">WIN STREAK</div>
+        <div class="header-stat-value" id="winStreakVal">5</div>
+        <div class="header-stat-sub">Rounds in a row</div>
+      </div>
+      <div class="header-stat-box">
+        <div class="header-stat-label">BIGGEST UPSET</div>
+        <div class="header-stat-value" id="comebackRoundVal" style="color: var(--gold);">R7</div>
+        <div class="header-stat-sub" id="comebackOddsVal">28.4% Win Odds</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: WIN PROBABILITY CHART (MODEL A) -->
+  <div class="card">
+    <div class="section-label">ROUND WIN PROBABILITY (MODEL A PRE-ROUND ODDS)</div>
+    <div class="chart-container">
+      <canvas id="winProbChart"></canvas>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot won"></div> Won Round</div>
+      <div class="legend-item"><div class="legend-dot lost"></div> Lost Round</div>
+      <div class="legend-item">⭐ Overperformed (&lt;40% Odds Won)</div>
+      <div class="legend-item">⚠️ Underperformed (&gt;60% Odds Lost)</div>
+      <div class="legend-item">│ Half-Time Switch (R13)</div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: TWO COLUMN LAYOUT -->
+  <div class="two-col-grid">
+    <!-- Left: Match-Swinging Rounds -->
+    <div class="card">
+      <div class="section-label">MATCH-SWINGING ROUNDS</div>
+      <div class="pivotal-list" id="pivotalList">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Right: Economy Efficiency -->
+    <div class="card">
+      <div class="section-label">ECONOMY EFFICIENCY</div>
+      <div class="econ-grid" id="econGrid">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="econ-insight" id="econInsight">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: LIVE PROBABILITY TIMELINE (MODEL B) -->
+  <div class="card">
+    <div class="section-label">LIVE PROBABILITY TIMELINE (MODEL B COMBAT EVOLUTION)</div>
+    <div class="sparklines-grid" id="sparklinesGrid">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="round-detail-drawer" id="roundDetailDrawer">
+      <div class="drawer-header">
+        <div class="drawer-title" id="drawerTitle">Round 1 Combat Timeline</div>
+        <button class="meta-pill" style="cursor: pointer;" onclick="closeDrawer()">✕ Close</button>
+      </div>
+      <div id="drawerContent">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: ROUND BREAKDOWN TABLE -->
+  <div class="card">
+    <div class="section-label">ROUND-BY-ROUND BREAKDOWN</div>
+    <div class="table-responsive">
+      <table class="round-table">
+        <thead>
+          <tr>
+            <th>RND</th>
+            <th>SIDE</th>
+            <th>BUY</th>
+            <th>ADVISOR</th>
+            <th>PRE%</th>
+            <th>K/D</th>
+            <th>RESULT</th>
+            <th>SWING</th>
+          </tr>
+        </thead>
+        <tbody id="roundTableBody">
+          <!-- Rendered by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 6: FOOTER -->
+  <div class="report-footer" id="reportFooter">
+    Generated by <strong>Valo Win Predictor</strong> · Model A accuracy this match: <span id="footerAcc">--</span> · <span id="footerDate">--</span>
+  </div>
+
+</div>
+
+<!-- DATA INJECTION -->
+<script>
+const MATCH_DATA = {
+  "match": {
+    "match_id": "0793a579",
+    "map": "Pearl",
+    "outcome": "defeat",
+    "final_score": [
+      11,
+      13
+    ],
+    "date": "2026-08-09",
+    "local_agent": "Vampire",
+    "local_player_name": "TNCxSomu",
+    "model_accuracy": 0.458
+  },
+  "rounds": [
+    {
+      "round_number": 1,
+      "round": 1,
+      "side": "attack",
+      "score_before": [
+        0,
+        0
+      ],
+      "pre_prob": 26.1,
+      "ally_money": 4000,
+      "enemy_money": 4000,
+      "buy_type": "pistol",
+      "buy_recommendation": "pistol",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Phoenix",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 34.5,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 3,
+          "live_prob": 44.2,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 2,
+          "live_prob": 55.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 44.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Brimstone",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 33.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Cypher",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 44.2,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Brimstone",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 41.8,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 1,
+      "player_kills": 2,
+      "player_deaths": 1,
+      "score_after": [
+        1,
+        0
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "clutch",
+      "prob_swing": 73.9
+    },
+    {
+      "round_number": 2,
+      "round": 2,
+      "side": "attack",
+      "score_before": [
+        1,
+        0
+      ],
+      "pre_prob": 93.7,
+      "ally_money": 14200,
+      "enemy_money": 4000,
+      "buy_type": "full_buy",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 3,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 99.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Cypher",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Brimstone",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Omen",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 94.6,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Miks",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Tejo",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        2,
+        0
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 6.3
+    },
+    {
+      "round_number": 3,
+      "round": 3,
+      "side": "attack",
+      "score_before": [
+        2,
+        0
+      ],
+      "pre_prob": 76.7,
+      "ally_money": 11200,
+      "enemy_money": 12050,
+      "buy_type": "force",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Cypher",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 92.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 3,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Cypher",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Sage",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 92.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 92.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Reyna",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 1,
+          "live_prob": 82.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Tejo",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        3,
+        0
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 23.3
+    },
+    {
+      "round_number": 4,
+      "round": 4,
+      "side": "attack",
+      "score_before": [
+        3,
+        0
+      ],
+      "pre_prob": 73.1,
+      "ally_money": 17250,
+      "enemy_money": 0,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 65.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 75.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Cypher",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 86.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Sage",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 75.6,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Phoenix",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 86.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Tejo",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 97.2,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Brimstone",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 86.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Miks",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        4,
+        0
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 26.9
+    },
+    {
+      "round_number": 5,
+      "round": 5,
+      "side": "attack",
+      "score_before": [
+        4,
+        0
+      ],
+      "pre_prob": 69.3,
+      "ally_money": 18450,
+      "enemy_money": 2500,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 61.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Miks",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 5,
+          "live_prob": 51.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Phoenix",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 61.5,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 71.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Miks",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 82.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 70.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 61.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Miks",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 1,
+          "live_prob": 70.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Reyna",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 1,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        4,
+        1
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -69.3
+    },
+    {
+      "round_number": 6,
+      "round": 6,
+      "side": "attack",
+      "score_before": [
+        4,
+        1
+      ],
+      "pre_prob": 78.2,
+      "ally_money": 19000,
+      "enemy_money": 17600,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Reyna",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 63.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "TNCxSomu",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 74.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 84.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 95.7,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Cypher",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 1,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Sage",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 95.7,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 84.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Cypher",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 1,
+      "player_kills": 2,
+      "player_deaths": 1,
+      "score_after": [
+        5,
+        1
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 21.8
+    },
+    {
+      "round_number": 7,
+      "round": 7,
+      "side": "attack",
+      "score_before": [
+        5,
+        1
+      ],
+      "pre_prob": 62.8,
+      "ally_money": 16750,
+      "enemy_money": 18750,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Phoenix",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 75.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Brimstone",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 64.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 75.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 63.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 75.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Reyna",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 63.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Sage",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 49.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 2,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Tejo",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 1,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 10,
+          "attacker": "Tejo",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 0,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 11,
+          "attacker": "Reyna",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 1,
+      "player_kills": 1,
+      "player_deaths": 1,
+      "score_after": [
+        5,
+        2
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -62.8
+    },
+    {
+      "round_number": 8,
+      "round": 8,
+      "side": "attack",
+      "score_before": [
+        5,
+        2
+      ],
+      "pre_prob": 78.2,
+      "ally_money": 14800,
+      "enemy_money": 17900,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 63.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Cypher",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 74.2,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Brimstone",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 63.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Tejo",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 74.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 3,
+          "live_prob": 63.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 3,
+          "live_prob": 52.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Omen",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 0,
+          "def_alive": 3,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        5,
+        3
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -78.2
+    },
+    {
+      "round_number": 9,
+      "round": 9,
+      "side": "attack",
+      "score_before": [
+        5,
+        3
+      ],
+      "pre_prob": 82.2,
+      "ally_money": 12450,
+      "enemy_money": 23650,
+      "buy_type": "force",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 67.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Tejo",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 79.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Tejo",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 90.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 91.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Cypher",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 91.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Reyna",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 1,
+          "live_prob": 79.6,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 9,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 0,
+      "player_kills": 1,
+      "player_deaths": 0,
+      "score_after": [
+        6,
+        3
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 17.8
+    },
+    {
+      "round_number": 10,
+      "round": 10,
+      "side": "attack",
+      "score_before": [
+        6,
+        3
+      ],
+      "pre_prob": 86.2,
+      "ally_money": 18750,
+      "enemy_money": 23450,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Tejo",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 95.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Brimstone",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 84.8,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Cypher",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 95.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 1,
+          "live_prob": 99.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 0,
+          "live_prob": 100.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 0,
+      "player_kills": 2,
+      "player_deaths": 0,
+      "score_after": [
+        7,
+        3
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 13.8
+    },
+    {
+      "round_number": 11,
+      "round": 11,
+      "side": "attack",
+      "score_before": [
+        7,
+        3
+      ],
+      "pre_prob": 87.6,
+      "ally_money": 28750,
+      "enemy_money": 22450,
+      "buy_type": "full_buy",
+      "buy_recommendation": "eco",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Sage",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 78.8,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "TNCxSomu",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 89.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 78.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Phoenix",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 89.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 3,
+          "live_prob": 78.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Reyna",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 3,
+          "live_prob": 66.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 0,
+          "def_alive": 3,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 1,
+      "player_kills": 1,
+      "player_deaths": 1,
+      "score_after": [
+        7,
+        4
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -87.6
+    },
+    {
+      "round_number": 12,
+      "round": 12,
+      "side": "attack",
+      "score_before": [
+        7,
+        4
+      ],
+      "pre_prob": 65.4,
+      "ally_money": 26950,
+      "enemy_money": 15850,
+      "buy_type": "full_buy",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "TNCxSomu",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 73.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Reyna",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 62.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Omen",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 51.7,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Omen",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 4,
+          "live_prob": 38.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Omen",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 4,
+          "live_prob": 28.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 3,
+          "live_prob": 39.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Miks",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 50.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 2,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 1,
+      "player_kills": 1,
+      "player_deaths": 1,
+      "score_after": [
+        7,
+        5
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -65.4
+    },
+    {
+      "round_number": 13,
+      "round": 13,
+      "side": "defense",
+      "score_before": [
+        7,
+        5
+      ],
+      "pre_prob": 35.8,
+      "ally_money": 10450,
+      "enemy_money": 21150,
+      "buy_type": "pistol",
+      "buy_recommendation": "pistol",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 51.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 5,
+          "live_prob": 61.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 50.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 39.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 29.7,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 39.8,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Miks",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 50.6,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Sage",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 1,
+          "live_prob": 39.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Sage",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 1,
+      "player_kills": 2,
+      "player_deaths": 1,
+      "score_after": [
+        7,
+        6
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "expected",
+      "prob_swing": -35.8
+    },
+    {
+      "round_number": 14,
+      "round": 14,
+      "side": "defense",
+      "score_before": [
+        7,
+        6
+      ],
+      "pre_prob": 50.3,
+      "ally_money": 2600,
+      "enemy_money": 4000,
+      "buy_type": "eco",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Tejo",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 66.7,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Sage",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 55.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 66.7,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "TNCxSomu",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 4,
+          "live_prob": 77.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Tejo",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 4,
+          "live_prob": 88.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Tejo",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 4,
+          "live_prob": 100.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 0,
+      "player_kills": 2,
+      "player_deaths": 0,
+      "score_after": [
+        8,
+        6
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 49.7
+    },
+    {
+      "round_number": 15,
+      "round": 15,
+      "side": "defense",
+      "score_before": [
+        8,
+        6
+      ],
+      "pre_prob": 24.1,
+      "ally_money": 23100,
+      "enemy_money": 19150,
+      "buy_type": "full_buy",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 37.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 25.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Miks",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 37.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 25.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 3,
+          "live_prob": 37.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 3,
+          "live_prob": 48.1,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Phoenix",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 3,
+          "live_prob": 100.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 0,
+      "player_kills": 1,
+      "player_deaths": 0,
+      "score_after": [
+        9,
+        6
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "clutch",
+      "prob_swing": 75.9
+    },
+    {
+      "round_number": 16,
+      "round": 16,
+      "side": "defense",
+      "score_before": [
+        9,
+        6
+      ],
+      "pre_prob": 23.8,
+      "ally_money": 26100,
+      "enemy_money": 16100,
+      "buy_type": "full_buy",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Phoenix",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 36.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "TNCxSomu",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 5,
+          "live_prob": 47.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 5,
+          "live_prob": 59.1,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 5,
+          "live_prob": 69.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Brimstone",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 4,
+          "live_prob": 59.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 3,
+          "live_prob": 48.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 37.5,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Tejo",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 2,
+          "live_prob": 100.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 0,
+      "player_kills": 2,
+      "player_deaths": 0,
+      "score_after": [
+        10,
+        6
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "clutch",
+      "prob_swing": 76.2
+    },
+    {
+      "round_number": 17,
+      "round": 17,
+      "side": "defense",
+      "score_before": [
+        10,
+        6
+      ],
+      "pre_prob": 20.5,
+      "ally_money": 28750,
+      "enemy_money": 15200,
+      "buy_type": "full_buy",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 11.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Tejo",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 24.3,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 35.7,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 24.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Reyna",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 11.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 1.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 1,
+      "player_kills": 1,
+      "player_deaths": 1,
+      "score_after": [
+        10,
+        7
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "expected",
+      "prob_swing": -20.5
+    },
+    {
+      "round_number": 18,
+      "round": 18,
+      "side": "defense",
+      "score_before": [
+        10,
+        7
+      ],
+      "pre_prob": 41.7,
+      "ally_money": 21600,
+      "enemy_money": 18400,
+      "buy_type": "full_buy",
+      "buy_recommendation": "force",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 31.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Cypher",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 42.1,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Omen",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 31.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 20.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 30.9,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 20.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Sage",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Brimstone",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 10,
+          "attacker": "Phoenix",
+          "victim": "Omen",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 11,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 1,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        10,
+        8
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "expected",
+      "prob_swing": -41.7
+    },
+    {
+      "round_number": 19,
+      "round": 19,
+      "side": "defense",
+      "score_before": [
+        10,
+        8
+      ],
+      "pre_prob": 34.6,
+      "ally_money": 17900,
+      "enemy_money": 18750,
+      "buy_type": "full_buy",
+      "buy_recommendation": "force",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 23.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Sage",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 3,
+          "live_prob": 12.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Tejo",
+          "victim": "Sage",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 23.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Miks",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 12.6,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 1,
+          "live_prob": 1.8,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 12.6,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Reyna",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        10,
+        9
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "expected",
+      "prob_swing": -34.6
+    },
+    {
+      "round_number": 20,
+      "round": 20,
+      "side": "defense",
+      "score_before": [
+        10,
+        9
+      ],
+      "pre_prob": 46.4,
+      "ally_money": 6750,
+      "enemy_money": 23850,
+      "buy_type": "eco",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 5,
+          "live_prob": 57.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Omen",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 49.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "TNCxSomu",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 57.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 49.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "TNCxSomu",
+          "victim": "Omen",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 3,
+          "live_prob": 57.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Sage",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 49.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Cypher",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 2,
+          "live_prob": 57.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 1,
+          "def_alive": 1,
+          "live_prob": 49.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Cypher",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 0,
+          "def_alive": 1,
+          "live_prob": 100.0,
+          "is_attacker_teammate": false
+        }
+      ],
+      "kills_by_local": 2,
+      "deaths_by_local": 1,
+      "player_kills": 2,
+      "player_deaths": 1,
+      "score_after": [
+        11,
+        9
+      ],
+      "result": "win",
+      "won": true,
+      "final_prob": 100.0,
+      "performance": "expected",
+      "prob_swing": 53.6
+    },
+    {
+      "round_number": 21,
+      "round": 21,
+      "side": "defense",
+      "score_before": [
+        11,
+        9
+      ],
+      "pre_prob": 63.4,
+      "ally_money": 11650,
+      "enemy_money": 21400,
+      "buy_type": "force",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Sage",
+          "victim": "Cypher",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 54.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Sage",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 65.1,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Phoenix",
+          "victim": "Reyna",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 4,
+          "live_prob": 75.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Miks",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 65.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Brimstone",
+          "victim": "TNCxSomu",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 54.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Phoenix",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 2,
+          "live_prob": 65.1,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Omen",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 1,
+          "live_prob": 54.3,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Brimstone",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 9,
+          "attacker": "Omen",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 2,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        11,
+        10
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -63.4
+    },
+    {
+      "round_number": 22,
+      "round": 22,
+      "side": "defense",
+      "score_before": [
+        11,
+        10
+      ],
+      "pre_prob": 77.8,
+      "ally_money": 5300,
+      "enemy_money": 21700,
+      "buy_type": "eco",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Tejo",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 63.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Phoenix",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 71.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 61.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 2,
+          "live_prob": 54.5,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Sage",
+          "victim": "Brimstone",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 1,
+          "live_prob": 43.7,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Miks",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 54.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Sage",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 8,
+          "attacker": "Sage",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        11,
+        11
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -77.8
+    },
+    {
+      "round_number": 23,
+      "round": 23,
+      "side": "defense",
+      "score_before": [
+        11,
+        11
+      ],
+      "pre_prob": 65.3,
+      "ally_money": 12900,
+      "enemy_money": 20500,
+      "buy_type": "force",
+      "buy_recommendation": "force",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Miks",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 53.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "TNCxSomu",
+          "victim": "Miks",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 4,
+          "live_prob": 62.4,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Omen",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 3,
+          "live_prob": 51.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Tejo",
+          "victim": "Reyna",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 3,
+          "live_prob": 62.2,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Omen",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 2,
+          "live_prob": 51.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Brimstone",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 3,
+          "def_alive": 1,
+          "live_prob": 41.1,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 7,
+          "attacker": "Omen",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 3,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 1,
+      "deaths_by_local": 1,
+      "player_kills": 1,
+      "player_deaths": 1,
+      "score_after": [
+        11,
+        12
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -65.3
+    },
+    {
+      "round_number": 24,
+      "round": 24,
+      "side": "defense",
+      "score_before": [
+        11,
+        12
+      ],
+      "pre_prob": 71.7,
+      "ally_money": 3450,
+      "enemy_money": 22700,
+      "buy_type": "eco",
+      "buy_recommendation": "full_buy",
+      "kills": [
+        {
+          "kill_index": 1,
+          "attacker": "Sage",
+          "victim": "Phoenix",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 4,
+          "live_prob": 63.9,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 2,
+          "attacker": "Omen",
+          "victim": "Tejo",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 3,
+          "live_prob": 55.2,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 3,
+          "attacker": "Reyna",
+          "victim": "TNCxSomu",
+          "headshot": true,
+          "att_alive": 5,
+          "def_alive": 2,
+          "live_prob": 45.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 4,
+          "attacker": "Reyna",
+          "victim": "Miks",
+          "headshot": false,
+          "att_alive": 5,
+          "def_alive": 1,
+          "live_prob": 34.4,
+          "is_attacker_teammate": true
+        },
+        {
+          "kill_index": 5,
+          "attacker": "Cypher",
+          "victim": "Brimstone",
+          "headshot": true,
+          "att_alive": 4,
+          "def_alive": 1,
+          "live_prob": 45.5,
+          "is_attacker_teammate": false
+        },
+        {
+          "kill_index": 6,
+          "attacker": "Omen",
+          "victim": "Cypher",
+          "headshot": false,
+          "att_alive": 4,
+          "def_alive": 0,
+          "live_prob": 0.0,
+          "is_attacker_teammate": true
+        }
+      ],
+      "kills_by_local": 0,
+      "deaths_by_local": 1,
+      "player_kills": 0,
+      "player_deaths": 1,
+      "score_after": [
+        11,
+        13
+      ],
+      "result": "loss",
+      "won": false,
+      "final_prob": 0.0,
+      "performance": "choke",
+      "prob_swing": -71.7
+    }
+  ]
+};
+</script>
+
+<!-- RENDER LOGIC -->
+<script>
+(function() {
+  if (!MATCH_DATA) return;
+
+  const { match, rounds } = MATCH_DATA;
+  const isVictory = (match.outcome || '').toLowerCase() === 'victory';
+
+  // ── 1. Match Header Card ──────────────────────────────────────────────────
+  const headerCard = document.getElementById('matchHeaderCard');
+  headerCard.className = `card match-header-card ${isVictory ? 'victory' : 'defeat'}`;
+
+  const outcomeTitle = document.getElementById('outcomeTitle');
+  outcomeTitle.textContent = (match.outcome || 'MATCH COMPLETED').toUpperCase();
+  outcomeTitle.className = `outcome-title ${isVictory ? 'victory' : 'defeat'}`;
+
+  const finalScore = match.final_score || [0, 0];
+  document.getElementById('finalScoreDisplay').textContent = `${finalScore[0]} — ${finalScore[1]}`;
+  document.getElementById('mapNameDisplay').textContent = match.map || 'Valorant';
+  document.getElementById('dateDisplay').textContent = match.date || new Date().toISOString().split('T')[0];
+  document.getElementById('agentDisplay').textContent = match.local_agent || match.local_player_name || 'Agent';
+
+  const accPct = match.model_accuracy != null ? (match.model_accuracy * 100).toFixed(1) : '0.0';
+  document.getElementById('modelAccDisplay').textContent = `${accPct}% Acc`;
+  document.getElementById('footerAcc').textContent = `${accPct}%`;
+  document.getElementById('footerDate').textContent = match.date || '';
+
+  // Calculate win streaks and biggest comeback
+  let maxStreak = 0, currentStreak = 0;
+  let biggestComebackRound = null, lowestWinProb = 100;
+
+  rounds.forEach(r => {
+    const isWon = r.result === 'win' || r.won === true;
+    if (isWon) {
+      currentStreak++;
+      if (currentStreak > maxStreak) maxStreak = currentStreak;
+      const pre = r.pre_prob || 50;
+      if (pre < lowestWinProb) {
+        lowestWinProb = pre;
+        biggestComebackRound = r;
+      }
+    } else {
+      currentStreak = 0;
+    }
+  });
+
+  document.getElementById('winStreakVal').textContent = `${maxStreak} W`;
+  if (biggestComebackRound) {
+    document.getElementById('comebackRoundVal').textContent = `R${biggestComebackRound.round_number || biggestComebackRound.round}`;
+    document.getElementById('comebackOddsVal').textContent = `${(biggestComebackRound.pre_prob || 0).toFixed(1)}% Odds`;
+  } else {
+    document.getElementById('comebackRoundVal').textContent = '--';
+    document.getElementById('comebackOddsVal').textContent = 'No Comeback';
+  }
+
+  // ── 2. Win Probability Bar Chart (Chart.js) ───────────────────────────────
+  const labels = rounds.map(r => `R${r.round_number || r.round}`);
+  const dataVals = rounds.map(r => r.pre_prob || 50);
+  const barColors = rounds.map(r => (r.result === 'win' || r.won) ? '#00e5cc' : '#ff4655');
+
+  // Custom Chart.js Plugin for Star ⭐ and Warning ⚠️ markers + Half-time line
+  const markersPlugin = {
+    id: 'markersPlugin',
+    afterDatasetsDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.font = '14px sans-serif';
+
+      rounds.forEach((r, idx) => {
+        const isWon = r.result === 'win' || r.won;
+        const pre = r.pre_prob || 50;
+        const xPos = x.getPixelForValue(idx);
+        const yPos = y.getPixelForValue(pre);
+
+        if (isWon && pre < 40) {
+          ctx.fillText('⭐', xPos, yPos - 4);
+        } else if (!isWon && pre > 60) {
+          ctx.fillText('⚠️', xPos, yPos - 4);
+        }
+      });
+
+      // Half-time switch line at Round 13 (index 12.5)
+      if (rounds.length >= 13) {
+        const halfX = (x.getPixelForValue(11) + x.getPixelForValue(12)) / 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(halfX, y.top);
+        ctx.lineTo(halfX, y.bottom);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = '10px Rajdhani, sans-serif';
+        ctx.fillText('HALF-TIME', halfX, y.top + 14);
+      }
+      ctx.restore();
+    }
+  };
+
+  const ctx = document.getElementById('winProbChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Win Probability',
+        data: dataVals,
+        backgroundColor: barColors,
+        borderRadius: 4,
+        borderSkipped: false,
+        maxBarThickness: 32,
+      }]
+    },
+    plugins: [markersPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 25,
+            callback: v => v + '%',
+            color: '#8fa3b1',
+            font: { family: 'Rajdhani', size: 11, weight: '600' }
+          },
+          grid: { color: 'rgba(255, 255, 255, 0.05)' }
+        },
+        x: {
+          ticks: {
+            color: '#8fa3b1',
+            font: { family: 'Rajdhani', size: 11, weight: '700' }
+          },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2332',
+          titleFont: { family: 'Rajdhani', size: 14, weight: '700' },
+          bodyFont: { family: 'Inter', size: 12 },
+          borderColor: 'rgba(255, 255, 255, 0.15)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: (ctx) => {
+              const r = rounds[ctx.dataIndex];
+              const res = (r.result === 'win' || r.won) ? 'WON' : 'LOST';
+              const side = (r.side || 'ATK').toUpperCase();
+              const buy = (r.buy_type || 'full_buy').toUpperCase();
+              return [
+                `Result: ${res} (${side} - ${buy})`,
+                `Win Odds: ${ctx.parsed.y}%`
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // ── 3. Match-Swinging Rounds ──────────────────────────────────────────────
+  const pivotalList = document.getElementById('pivotalList');
+  // Impact = abs(pre_prob - 50) * (1 if result matches expectation else -1)
+  const scoredRounds = rounds.map(r => {
+    const isWon = r.result === 'win' || r.won;
+    const pre = r.pre_prob || 50;
+    const expected = pre >= 50;
+    const matched = isWon === expected;
+    const swing = isWon ? (100 - pre) : -pre;
+    const impact = Math.abs(pre - 50) * (matched ? 1 : 2); // Upsets weighted higher
+    return { ...r, isWon, swing, impact };
+  });
+
+  scoredRounds.sort((a, b) => Math.abs(b.swing) - Math.abs(a.swing));
+  const topPivotal = scoredRounds.slice(0, 3);
+
+  pivotalList.innerHTML = topPivotal.map(r => {
+    const rndNum = r.round_number || r.round;
+    const resClass = r.isWon ? 'won' : 'lost';
+    const resLabel = r.isWon ? 'WON' : 'LOST';
+    const swingText = (r.swing >= 0 ? '+' : '') + r.swing.toFixed(1) + '%';
+    
+    let desc = '';
+    if (r.isWon) {
+      if (r.pre_prob < 40) desc = `Won despite ${r.pre_prob.toFixed(1)}% odds — biggest upset!`;
+      else if (r.buy_type === 'eco') desc = 'Clutched on Eco buy — massive economy swing';
+      else desc = 'Secured high-stakes momentum round';
+    } else {
+      if (r.pre_prob > 60) desc = `Lost favored round (${r.pre_prob.toFixed(1)}% expected) — costly choke`;
+      else if (r.buy_type === 'full_buy') desc = 'Lost full buy round — wiped team economy';
+      else desc = 'Key momentum loss';
+    }
+
+    return `
+      <div class="pivotal-card ${resClass}">
+        <span class="pivotal-badge ${resClass}">${resLabel}</span>
+        <div class="pivotal-body">
+          <div class="pivotal-title">
+            <span>ROUND ${rndNum}</span>
+            <span class="chip chip-${r.side || 'atk'}">${(r.side || 'atk').toUpperCase()}</span>
+          </div>
+          <div class="pivotal-reason">${desc}</div>
+        </div>
+        <div class="pivotal-swing ${resClass}">${swingText}</div>
+      </div>
+    `;
+  }).join('');
+
+  // ── Economy Efficiency Grid ───────────────────────────────────────────────
+  const econGrid = document.getElementById('econGrid');
+  const buyTypes = ['pistol', 'eco', 'force', 'full_buy'];
+  const buyLabels = { pistol: 'PISTOL', eco: 'ECO / SAVE', force: 'FORCE BUY', full_buy: 'FULL BUY' };
+  
+  const econStats = {};
+  buyTypes.forEach(bt => {
+    const rForType = rounds.filter(r => r.buy_type === bt);
+    const wonCount = rForType.filter(r => r.result === 'win' || r.won).length;
+    const total = rForType.length;
+    const wr = total > 0 ? (wonCount / total) * 100 : 0;
+    econStats[bt] = { played: total, won: wonCount, lost: total - wonCount, wr };
+  });
+
+  econGrid.innerHTML = buyTypes.map(bt => {
+    const st = econStats[bt];
+    const wrClass = st.wr >= 60 ? '' : (st.wr >= 40 ? 'mid' : 'low');
+    return `
+      <div class="econ-card">
+        <div class="econ-card-header">
+          <span class="econ-type">${buyLabels[bt]}</span>
+          <span class="econ-record">${st.won}W — ${st.lost}L</span>
+        </div>
+        <div class="econ-wr">${st.played > 0 ? Math.round(st.wr) + '%' : '--'}</div>
+        <div class="econ-bar-track">
+          <div class="econ-bar-fill ${wrClass}" style="width: ${st.wr}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Economy insight
+  const econInsight = document.getElementById('econInsight');
+  if (econStats.force.played > 0 && econStats.force.wr < 35) {
+    econInsight.textContent = `💡 Force buys were a weak spot (${econStats.force.won}W/${econStats.force.played}L - ${Math.round(econStats.force.wr)}%). Prioritize saving for full rifles.`;
+  } else if (econStats.eco.played > 0 && econStats.eco.wr >= 50) {
+    econInsight.textContent = `💡 Outstanding Eco conversion (${econStats.eco.won}W/${econStats.eco.played}L). High tactical discipline on thrifties.`;
+  } else if (econStats.full_buy.wr >= 70) {
+    econInsight.textContent = `💡 Strong full-buy conversion (${econStats.full_buy.won}W/${econStats.full_buy.played}L). High rifle round efficiency.`;
+  } else {
+    econInsight.textContent = `💡 Economy managed across all buy phases. Model A tracked team spending accurately.`;
+  }
+
+  // ── 4. Live Probability Timeline (Model B Sparklines) ──────────────────────
+  const sparklinesGrid = document.getElementById('sparklinesGrid');
+  sparklinesGrid.innerHTML = rounds.map((r, idx) => {
+    const rndNum = r.round_number || r.round;
+    const isWon = r.result === 'win' || r.won;
+    const resLabel = isWon ? 'W' : 'L';
+    const resClass = isWon ? 'won' : 'lost';
+    const hasKills = r.kills && r.kills.length > 0;
+
+    return `
+      <div class="spark-card" id="sparkCard_${idx}" onclick="showRoundDetail(${idx})">
+        <div class="spark-header">
+          <span>R${rndNum}</span>
+          <span class="spark-res ${resClass}">${resLabel}</span>
+        </div>
+        <div class="spark-canvas-wrap">
+          ${hasKills 
+            ? `<canvas id="sparkCanvas_${idx}"></canvas>` 
+            : `<div class="spark-no-data">No Kills</div>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Render individual sparkline charts
+  rounds.forEach((r, idx) => {
+    if (!r.kills || r.kills.length === 0) return;
+    const sparkCanvas = document.getElementById(`sparkCanvas_${idx}`);
+    if (!sparkCanvas) return;
+
+    const isWon = r.result === 'win' || r.won;
+    const lineColor = isWon ? '#00e5cc' : '#ff4655';
+    
+    // Series starts with pre-round prob and updates with each kill's live_prob
+    const dataPoints = [r.pre_prob || 50, ...r.kills.map(k => k.live_prob || 50)];
+
+    new Chart(sparkCanvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: dataPoints.map((_, i) => i),
+        datasets: [{
+          data: dataPoints,
+          borderColor: lineColor,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { display: false },
+          y: { display: false, min: 0, max: 100 }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+  });
+
+  // Drawer expansion logic
+  window.showRoundDetail = function(idx) {
+    document.querySelectorAll('.spark-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById(`sparkCard_${idx}`);
+    if (card) card.classList.add('active');
+
+    const drawer = document.getElementById('roundDetailDrawer');
+    const title = document.getElementById('drawerTitle');
+    const content = document.getElementById('drawerContent');
+    const r = rounds[idx];
+    const rndNum = r.round_number || r.round;
+    const isWon = r.result === 'win' || r.won;
+
+    title.textContent = `Round ${rndNum} Combat Progression (${(r.side || 'ATK').toUpperCase()} — ${isWon ? 'WON' : 'LOST'})`;
+
+    if (!r.kills || r.kills.length === 0) {
+      content.innerHTML = `<div style="font-size: 12px; color: var(--text-2); padding: 12px 0;">No individual combat kill events recorded for this round.</div>`;
+    } else {
+      content.innerHTML = `
+        <table class="kill-feed-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ATTACKER</th>
+              <th>VICTIM</th>
+              <th>MANPOWER</th>
+              <th>LIVE WIN %</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${r.kills.map((k, kIdx) => `
+              <tr>
+                <td>${kIdx + 1}</td>
+                <td><span class="kf-attacker">${k.attacker || 'Player'}</span> ${k.headshot ? '💥 HS' : ''}</td>
+                <td><span class="kf-victim">${k.victim || 'Enemy'}</span></td>
+                <td>${k.att_alive ?? '?'}v${k.def_alive ?? '?'}</td>
+                <td><span class="kf-prob">${(k.live_prob != null ? k.live_prob : 50).toFixed(1)}%</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    drawer.style.display = 'block';
+  };
+
+  window.closeDrawer = function() {
+    document.getElementById('roundDetailDrawer').style.display = 'none';
+    document.querySelectorAll('.spark-card').forEach(c => c.classList.remove('active'));
+  };
+
+  // ── 5. Round Breakdown Table ──────────────────────────────────────────────
+  const tableBody = document.getElementById('roundTableBody');
+  tableBody.innerHTML = rounds.map(r => {
+    const rndNum = r.round_number || r.round;
+    const side = (r.side || 'atk').toLowerCase();
+    const buyType = (r.buy_type || 'full_buy').toLowerCase();
+    const buyRec = (r.buy_recommendation || '').toLowerCase();
+    const isWon = r.result === 'win' || r.won;
+    const pre = r.pre_prob || 50;
+
+    // Advisor chip
+    let advisorHtml = '';
+    if (!buyRec || buyRec === buyType || buyType === 'pistol') {
+      advisorHtml = `<span class="chip chip-match">MATCH</span>`;
+    } else {
+      advisorHtml = `<span class="chip chip-differ" title="Advisor suggested ${buyRec.toUpperCase()}">DIFF (${buyRec.toUpperCase()})</span>`;
+    }
+
+    // Pre prob colored
+    const probClass = pre >= 60 ? 'prob-high' : (pre >= 40 ? 'prob-mid' : 'prob-low');
+    
+    // K/D for local player
+    const kills = r.kills_by_local || r.player_kills || 0;
+    const deaths = r.deaths_by_local || r.player_deaths || 0;
+
+    // Swing
+    const swing = isWon ? (100 - pre) : -pre;
+    const swingClass = swing >= 0 ? 'swing-pos' : 'swing-neg';
+    const swingSign = swing >= 0 ? '+' : '';
+
+    return `
+      <tr>
+        <td><span class="rnd-num">R${rndNum}</span></td>
+        <td><span class="chip chip-${side}">${side.toUpperCase()}</span></td>
+        <td><span class="chip chip-${buyType}">${buyType.toUpperCase()}</span></td>
+        <td>${advisorHtml}</td>
+        <td><span class="prob-val ${probClass}">${pre.toFixed(1)}%</span></td>
+        <td><strong>${kills}</strong> / ${deaths}</td>
+        <td><span class="chip ${isWon ? 'chip-match' : 'chip-atk'}">${isWon ? 'WON' : 'LOST'}</span></td>
+        <td><span class="swing-val ${swingClass}">${swingSign}${swing.toFixed(1)}%</span></td>
+      </tr>
+    `;
+  }).join('');
+
+})();
+</script>
+
+</body>
+</html>
