@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -9,6 +9,7 @@ import {
   ReferenceLine,
   Tooltip,
 } from 'recharts'
+import { toPng } from 'html-to-image'
 import './PostMatchReport.css'
 
 // Custom Tooltip for Recharts Win Probability Bar Chart
@@ -111,8 +112,65 @@ function Sparkline({ series, won, width = 100, height = 40, stretch = true, mark
   )
 }
 
+// ── Download / export helpers ────────────────────────────────────────────────
+function sanitizeFilename(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+
+function buildRoundCsv(rounds) {
+  const esc = (v) => {
+    const s = String(v == null ? '' : v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const header = ['RND', 'SIDE', 'BUY TYPE', 'BUY ADV', 'PRE-ROUND WIN %', 'K / D', 'RESULT', 'SWING', 'KILLS']
+  const lines = [header.map(esc).join(',')]
+
+  ;(rounds || []).forEach((r) => {
+    const evalStr = r.buy_eval
+      ? String(r.buy_eval).toUpperCase()
+      : String(r.buy_recommendation || '').toLowerCase() === String(r.buy_type || '').toLowerCase()
+        ? 'MATCH'
+        : 'DIFF'
+    let k = r.player_kills ?? r.kills_by_local ?? r.kills
+    let d = r.player_deaths ?? r.deaths_by_local ?? r.deaths
+    k = Array.isArray(k) ? k.length : (Number(k) || 0)
+    d = Array.isArray(d) ? d.length : (Number(d) || 0)
+    const swing = Number(r.prob_swing)
+    lines.push([
+      r.round_number || r.round,
+      String(r.side || '').toUpperCase(),
+      String(r.buy_type || 'full_buy').replace('_', ' ').toUpperCase(),
+      evalStr,
+      r.pre_prob,
+      `${k}/${d}`,
+      r.won ? 'WIN' : 'LOSS',
+      isNaN(swing) ? '' : `${swing >= 0 ? '+' : ''}${swing}%`,
+      Array.isArray(r.kills) ? r.kills.length : 0,
+    ].map(esc).join(','))
+  })
+
+  return '\uFEFF' + lines.join('\n')
+}
+
 export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport }) {
   const [activeRound, setActiveRound] = useState(null)
+  const [busy, setBusy] = useState('')
+  const containerRef = useRef(null)
+  const modalRef = useRef(null)
 
   useEffect(() => {
     if (!activeRound) return undefined
@@ -218,6 +276,35 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     })
   }, [rounds])
 
+  // ── Download handlers ──────────────────────────────────────────────────────
+  const baseName = `valo_report_${sanitizeFilename(map) || 'valorant'}_${sanitizeFilename(outcome) || 'match'}${
+    date ? `_${String(date).replace(/-/g, '')}` : ''
+  }`
+
+  const exportPng = async (node, filename) => {
+    if (busy || !node) return
+    setBusy(filename)
+    try {
+      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#0f1923', cacheBust: true })
+      const blob = await (await fetch(dataUrl)).blob()
+      downloadBlob(blob, filename)
+    } catch {
+      try {
+        const dataUrl = await toPng(node, { pixelRatio: 1, backgroundColor: '#0f1923', cacheBust: true })
+        window.open(dataUrl, '_blank')
+      } catch {
+        /* give up silently */
+      }
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const exportCsv = () => {
+    const blob = new Blob([buildRoundCsv(rounds)], { type: 'text/csv;charset=utf-8;' })
+    downloadBlob(blob, `${baseName}.csv`)
+  }
+
   if (!report) return null
 
   // Economy types list
@@ -229,7 +316,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
   ]
 
   return (
-    <div className="pmr-container">
+    <div className="pmr-container" ref={containerRef}>
       {/* 1. Header Card */}
       <div className={`pmr-card pmr-header-card ${isVictory ? 'theme-victory' : 'theme-defeat'}`}>
         <div className="header-glow" />
@@ -300,6 +387,29 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 <span className="meta-val text-gold">R{biggest_upset.round}</span>
                 <span className="meta-lbl">BIGGEST UPSET</span>
               </div>
+            </>
+          )}
+          {rounds.length > 0 && (
+            <>
+              <div className="meta-divider" />
+              <button
+                type="button"
+                className="pmr-header-action-btn pmr-dl-btn"
+                onClick={() => exportPng(containerRef.current, `${baseName}.png`)}
+                disabled={!!busy}
+                title="Download this report as a PNG image"
+              >
+                {busy ? '…' : '⭳ PNG'}
+              </button>
+              <button
+                type="button"
+                className="pmr-header-action-btn pmr-dl-csv-btn"
+                onClick={exportCsv}
+                disabled={!!busy}
+                title="Download round-by-round breakdown as CSV"
+              >
+                ⭳ CSV
+              </button>
             </>
           )}
           {(reportUrl || reportFile) && onOpenReport && (
@@ -702,7 +812,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
       {/* Combat Progression Modal */}
       {activeRound && (
         <div className="pmr-modal-backdrop" onClick={() => setActiveRound(null)}>
-          <div className="pmr-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="pmr-modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
             <div className="pmr-modal-header">
               <div className="pmr-modal-title">
                 <span className="pmr-modal-rnd">ROUND {activeRound.round}</span>
@@ -712,6 +822,15 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 {activeRound.performance === 'clutch' && <span className="perf-tag tag-clutch">🔥 CLUTCH</span>}
                 {activeRound.performance === 'choke' && <span className="perf-tag tag-choke">⚠️ CHOKE</span>}
               </div>
+              <button
+                type="button"
+                className="pmr-modal-export"
+                onClick={() => exportPng(modalRef.current, `${baseName}_r${activeRound.round}.png`)}
+                disabled={!!busy}
+                title="Download this round's combat chart as PNG"
+              >
+                {busy ? '…' : '⭳ PNG'}
+              </button>
               <button type="button" className="pmr-modal-close" onClick={() => setActiveRound(null)} aria-label="Close">
                 ✕
               </button>

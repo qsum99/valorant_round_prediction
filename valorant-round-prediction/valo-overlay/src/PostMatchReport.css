@@ -265,6 +265,36 @@
   transform: translateY(-1px);
 }
 
+.pmr-header-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pmr-dl-btn {
+  background: rgba(232, 196, 104, 0.12);
+  border-color: #e8c468;
+  color: #e8c468;
+}
+
+.pmr-dl-btn:hover {
+  background: #e8c468;
+  color: #0f1923;
+  box-shadow: 0 0 12px rgba(232, 196, 104, 0.5);
+}
+
+.pmr-dl-csv-btn {
+  background: rgba(79, 195, 247, 0.12);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+.pmr-dl-csv-btn:hover {
+  background: #4fc3f7;
+  color: #0f1923;
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.5);
+}
+
 /* --------------------------------------------------------------------------
    2. Win Probability Bar Chart
    -------------------------------------------------------------------------- */
@@ -998,6 +1028,31 @@
   background: rgba(255, 70, 85, 0.15);
   color: #ff4655;
   border-color: rgba(255, 70, 85, 0.4);
+}
+
+.pmr-modal-export {
+  appearance: none;
+  background: rgba(232, 196, 104, 0.12);
+  border: 1px solid #e8c468;
+  color: #e8c468;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.pmr-modal-export:hover {
+  background: #e8c468;
+  color: #0f1923;
+}
+.pmr-modal-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .pmr-modal-meta {
