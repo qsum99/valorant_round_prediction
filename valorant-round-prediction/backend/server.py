@@ -629,6 +629,7 @@ class LogWatcher:
         self.current_file: Path | None = None
         self.last_mtime   = 0.0
         self.start_time   = time.time()
+        self.last_index   = 0
 
     def get_latest_json(self) -> Path | None:
         candidates = []
@@ -711,6 +712,18 @@ class LogWatcher:
                 return json.loads(partial)
             except Exception:
                 return []
+
+    def get_new_entries(self) -> list[dict]:
+        all_events, is_new_file = self.poll()
+        if is_new_file:
+            self.last_index = 0
+
+        if not all_events:
+            return []
+
+        new_events = all_events[self.last_index:]
+        self.last_index = len(all_events)
+        return new_events
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -897,8 +910,22 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             "score_lost": state.score_lost,
                         })
 
+match_finalized = False
+
 async def finalize_and_broadcast_match_end(state: RoundState, history: MatchHistory, report_generator: ReportGenerator, outcome_override: str = ""):
-    global last_match_end_payload, last_match_report_payload
+    global last_match_end_payload, last_match_report_payload, match_finalized
+
+    if match_finalized:
+        log.debug("Match end already finalized for this match. Skipping duplicate execution.")
+        return
+
+    # Don't generate empty reports if no rounds were recorded yet
+    if not history.rounds and not history._current_round:
+        log.debug("Match end triggered with empty history. Skipping.")
+        match_finalized = True
+        return
+
+    match_finalized = True
 
     outcome = outcome_override or state.raw.get("match_outcome", "")
     if not outcome or outcome == "unknown":
@@ -962,20 +989,8 @@ async def finalize_and_broadcast_match_end(state: RoundState, history: MatchHist
 
     await broadcast(last_match_end_payload)
     if report:
-        log.info(f"📊 Post-match report: {len(report.get('rounds', []))} rounds | HTML saved: {report_file}")
+        log.info(f"📊 Post-match report generated: {len(report.get('rounds', []))} rounds | HTML saved: {report_file}")
         await broadcast(report)
-
-    # Automatically open the interactive report in default web browser
-    if report_file and os.path.exists(report_file):
-        try:
-            abs_url = f"file:///{Path(report_file).resolve().as_posix()}"
-            webbrowser.open(abs_url)
-            log.info(f"🌐 Opened post-match report in browser: {abs_url}")
-        except Exception as e:
-            log.warning(f"Could not open browser report: {e}")
-
-    state.reset()
-    history.reset()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1005,6 +1020,13 @@ async def game_loop(watcher: LogWatcher, predictor: Predictor, buy_advisor: BuyA
                     last_phase = phase
 
                     if phase in ("shopping", "start", "buy") or (phase == "combat" and not state.pre_snap):
+                        global match_finalized
+                        if match_finalized:
+                            log.info("🎮 New match detected after match end! Resetting state & history...")
+                            match_finalized = False
+                            state.reset()
+                            history.reset()
+
                         # FIRST: finalize the PREVIOUS round now that scores are updated
                         # (Overwolf updates the score between rounds, not at round end)
                         if history._current_round:
@@ -1150,6 +1172,7 @@ async def game_loop(watcher: LogWatcher, predictor: Predictor, buy_advisor: BuyA
 
                     elif name == "match_start":
                         log.info("🎮 Match started!")
+                        match_finalized = False
                         state.reset(keep_side=True)
                         history.reset()
                         last_phase = ""
@@ -1158,6 +1181,8 @@ async def game_loop(watcher: LogWatcher, predictor: Predictor, buy_advisor: BuyA
                     elif name in ("match_end", "matchEnd"):
                         await finalize_and_broadcast_match_end(state, history, report_generator)
                         last_phase = ""
+
+        await asyncio.sleep(POLL_INTERVAL)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1192,7 +1217,7 @@ async def main():
 
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT, process_request=process_request):
         log.info(f"WebSocket server running on ws://{WS_HOST}:{WS_PORT}")
-        await game_loop(predictor, watcher, advisor, report_generator)
+        await game_loop(watcher, predictor, advisor, report_generator)
 
 
 if __name__ == "__main__":
