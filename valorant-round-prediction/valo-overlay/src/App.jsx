@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useGameSocket } from './useGameSocket'
-import { ProbBar }   from './ProbBar'
-import { KillFeed }  from './KillFeed'
-import { ScoreBar }  from './ScoreBar'
+import { ProbBar }      from './ProbBar'
+import { KillFeed }     from './KillFeed'
+import { ScoreBar }     from './ScoreBar'
+import { BuyAdvisor }   from './BuyAdvisor'
 import './App.css'
 
 const MAX_KILLS = 9
@@ -10,12 +11,15 @@ const INITIAL = {
   connected: false, inMatch: false, round: 0, map: '', side: '',
   scoreWon: 0, scoreLost: 0, preProb: 50, liveProb: 50,
   spikePlanted: false, kills: [], phase: 'waiting', matchOutcome: null,
+  matchReport: null, buyRecommendation: null,
+  reportFile: null, reportUrl: null, showToast: false,
 }
 
 export default function App() {
   const [state, setState] = useState(INITIAL)
   const [animating, setAnim] = useState(false)
   const flashTimer = useRef(null)
+  const toastTimer = useRef(null)
 
   const triggerFlash = () => {
     setAnim(false)
@@ -25,6 +29,20 @@ export default function App() {
       flashTimer.current = setTimeout(() => setAnim(false), 500)
     })
   }
+
+  const openReport = useCallback((url, filePath) => {
+    const targetUrl = url || (filePath ? `file:///${filePath.replace(/\\/g, '/')}` : '')
+    if (!targetUrl) return
+    try {
+      if (window.overwolf?.utils?.openUrlInDefaultBrowser) {
+        window.overwolf.utils.openUrlInDefaultBrowser(targetUrl)
+      } else {
+        window.open(targetUrl, '_blank')
+      }
+    } catch (e) {
+      window.open(targetUrl, '_blank')
+    }
+  }, [])
 
   const onMessage = useCallback((msg) => {
     switch (msg.type) {
@@ -46,6 +64,7 @@ export default function App() {
           scoreLost: msg.score_lost ?? s.scoreLost,
           preProb: msg.prob, liveProb: msg.prob,
           spikePlanted: false, kills: [],
+          buyRecommendation: msg.buy_recommendation || s.buyRecommendation || null,
         }))
         break
       case 'live_update': {
@@ -63,6 +82,7 @@ export default function App() {
             ...s, phase: 'combat', liveProb: next,
             spikePlanted: msg.spike_planted || s.spikePlanted,
             kills: [kill, ...s.kills].slice(0, MAX_KILLS),
+            buyRecommendation: null,  // hide buy card on combat
           }
         })
         break
@@ -76,9 +96,29 @@ export default function App() {
           scoreLost: msg.score_lost ?? s.scoreLost }))
         break
       case 'match_end':
-        setState(s => ({ ...s, phase: 'match_end', matchOutcome: msg.outcome,
+        clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => {
+          setState(s => ({ ...s, showToast: false }))
+        }, 15000)
+        setState(s => ({
+          ...s, inMatch: true, phase: 'match_end', matchOutcome: msg.outcome,
           scoreWon: msg.score_won ?? s.scoreWon,
-          scoreLost: msg.score_lost ?? s.scoreLost }))
+          scoreLost: msg.score_lost ?? s.scoreLost,
+          reportFile: msg.report_file || s.reportFile,
+          reportUrl: msg.report_url || s.reportUrl,
+          showToast: true,
+        }))
+        break
+      case 'match_report':
+        setState(s => ({
+          ...s,
+          inMatch: true,
+          phase: 'match_end',
+          matchReport: msg,
+          reportFile: msg.report_file || s.reportFile,
+          reportUrl: msg.report_url || s.reportUrl,
+          showToast: true,
+        }))
         break
       default: break
     }
@@ -88,7 +128,8 @@ export default function App() {
 
   const { connected, inMatch, phase, round, map, side,
           scoreWon, scoreLost, preProb, liveProb,
-          spikePlanted, kills, matchOutcome } = state
+          spikePlanted, kills, matchOutcome, matchReport,
+          buyRecommendation, reportFile, reportUrl, showToast } = state
 
   if (!connected) return (
     <div className="overlay-root">
@@ -126,6 +167,9 @@ export default function App() {
         <ScoreBar scoreWon={scoreWon} scoreLost={scoreLost}
           round={round} map={map} side={side} spikePlanted={spikePlanted} />
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
+        {buyRecommendation && (phase === 'pre_round' || kills.length === 0) && (
+          <BuyAdvisor recommendation={buyRecommendation} />
+        )}
         {kills.length > 0 && (
           <div className="kf-section">
             <div className="section-label">ROUND KILLS</div>
@@ -136,3 +180,4 @@ export default function App() {
     </div>
   )
 }
+

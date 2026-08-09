@@ -2,14 +2,16 @@ import {
   OWGames,
   OWGameListener,
   OWGamesEvents,
-  OWWindow
+  OWWindow,
+  OWHotkeys
 } from '@overwolf/overwolf-api-ts';
 
-import { kWindowNames, kGameClassIds, kGamesFeatures } from "../consts";
+import { kWindowNames, kGameClassIds, kGamesFeatures, kHotkeys } from "../consts";
 import { GameStateManager } from "./GameState";
 
 import RunningGameInfo = overwolf.games.RunningGameInfo;
 import AppLaunchTriggeredEvent = overwolf.extensions.AppLaunchTriggeredEvent;
+import WindowState = overwolf.windows.WindowStateEx;
 
 // The background controller holds all of the app's background logic - hence its name. it has
 // many possible use cases, for example sharing data between windows, or, in our case,
@@ -37,7 +39,30 @@ class BackgroundController {
     overwolf.extensions.onAppLaunchTriggered.addListener(
       e => this.onAppLaunchTriggered(e)
     );
+
+    // Global hotkey handler for Ctrl+F (show/hide overlay)
+    OWHotkeys.onHotkeyDown(kHotkeys.toggle, async (res) => {
+      console.log('Hotkey pressed in background controller:', res);
+      await this.toggleInGameWindow();
+    });
   };
+
+  private async toggleInGameWindow() {
+    try {
+      const inGameWindow = this._windows[kWindowNames.inGame];
+      if (!inGameWindow) return;
+      const state = await inGameWindow.getWindowState();
+      const stateStr = String((state as any).window_state_ex || (state as any).window_state || '').toLowerCase();
+      console.log('Current in_game window state:', stateStr);
+      if (stateStr === 'normal' || stateStr === 'maximized') {
+        await inGameWindow.minimize();
+      } else {
+        await inGameWindow.restore();
+      }
+    } catch (e) {
+      console.error('Error toggling in-game window:', e);
+    }
+  }
 
   private async startDataCollection(classId: number) {
     this.stopDataCollection();
