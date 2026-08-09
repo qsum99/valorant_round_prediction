@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -59,8 +59,69 @@ function CustomChartTooltip({ active, payload }) {
   )
 }
 
+// String formatting helpers
+function fmtSwing(s) {
+  const n = Number(s)
+  if (isNaN(n)) return '—'
+  return `${n >= 0 ? '+' : ''}${n}%`
+}
+
+// Zero-dependency SVG sparkline of a round's live win-probability curve
+function Sparkline({ series, won, width = 100, height = 40, stretch = true, markers = false, labels = false }) {
+  const color = won ? '#00e5cc' : '#ff4655'
+  const denom = Math.max(1, series.length - 1)
+  const pts = series.map((v, i) => {
+    const c = Math.min(100, Math.max(0, v))
+    const x = (i / denom) * width
+    const y = height - (c / 100) * height
+    return { x, y }
+  })
+  const line = pts.map(p => `${p.x},${p.y}`).join(' ')
+  const area = `0,${height} ${line} ${width},${height}`
+  const svgProps = stretch
+    ? { width: '100%', height, viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none' }
+    : { width, height, viewBox: `0 0 ${width} ${height}` }
+
+  return (
+    <svg className="pmr-spark-svg" {...svgProps}>
+      {!stretch && (
+        <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
+      )}
+      <polygon points={area} fill={color} opacity="0.12" />
+      <polyline
+        points={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={stretch ? 1.6 : 1.8}
+        vectorEffect={stretch ? undefined : 'non-scaling-stroke'}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {pts.map((p, i) => {
+        if (!(markers || i === pts.length - 1)) return null
+        return <circle key={i} cx={p.x} cy={p.y} r={markers ? 3 : 2} fill={color} />
+      })}
+      {labels &&
+        series.map((v, i) => (
+          <text key={`t${i}`} x={pts[i].x} y={Math.max(10, pts[i].y - 7)} fontSize="9" fill="#94a3b8" textAnchor="middle">
+            {Math.round(v)}
+          </text>
+        ))}
+    </svg>
+  )
+}
+
 export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport }) {
-  if (!report) return null
+  const [activeRound, setActiveRound] = useState(null)
+
+  useEffect(() => {
+    if (!activeRound) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setActiveRound(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeRound])
 
   const {
     map = 'VALORANT',
@@ -69,7 +130,12 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     rounds = [],
     pivotal_rounds = [],
     economy = {},
-  } = report
+    date = '',
+    local_agent = '',
+    model_accuracy = null,
+    max_streak = 0,
+    biggest_upset = null,
+  } = report || {}
 
   const isVictory = outcome.toLowerCase() === 'victory'
   const totalRounds = rounds.length
@@ -122,6 +188,38 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     })
   }, [rounds])
 
+  // Live probability curve series per round (Model B combat evolution)
+  const timelineData = useMemo(() => {
+    if (!rounds.length) return []
+    return rounds.map(r => {
+      const pre = Number(r.pre_prob)
+      const safePre = isNaN(pre) ? 50 : pre
+      const kills = Array.isArray(r.kills) ? r.kills : []
+      const series = [safePre]
+      kills.forEach(k => {
+        const p = Number(k.live_prob)
+        if (!isNaN(p)) series.push(p)
+      })
+      const fp = Number(r.final_prob)
+      if (!isNaN(fp) && series[series.length - 1] !== fp) series.push(fp)
+      if (series.length < 2) series.push(safePre)
+      return {
+        round: r.round_number || r.round,
+        won: !!r.won,
+        performance: r.performance || 'expected',
+        buyType: r.buy_type || 'full_buy',
+        side: r.side,
+        preProb: Math.round(safePre * 10) / 10,
+        finalProb: fp,
+        swing: r.prob_swing,
+        kills,
+        series,
+      }
+    })
+  }, [rounds])
+
+  if (!report) return null
+
   // Economy types list
   const econTypes = [
     { key: 'pistol', label: 'PISTOL' },
@@ -143,6 +241,12 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
             <span className="mode-pill">COMPETITIVE</span>
           </div>
           <div className="map-title">{(map && map.trim()) ? map.toUpperCase() : 'VALORANT'}</div>
+          {(local_agent || date) && (
+            <div className="header-sub-row">
+              {local_agent && <span className="header-sub-chip header-sub-agent">🎮 {local_agent}</span>}
+              {date && <span className="header-sub-chip">📅 {date}</span>}
+            </div>
+          )}
         </div>
 
         <div className="header-score-box">
@@ -170,6 +274,34 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
             <span className="meta-val text-enemy">{lostCount}L</span>
             <span className="meta-lbl">LOST</span>
           </div>
+          {model_accuracy != null && (
+            <>
+              <div className="meta-divider" />
+              <div className="meta-stat">
+                <span className="meta-val text-ally">{Math.round(model_accuracy * 100)}%</span>
+                <span className="meta-lbl">MODEL A ACC</span>
+              </div>
+            </>
+          )}
+          {max_streak > 0 && (
+            <>
+              <div className="meta-divider" />
+              <div className="meta-stat">
+                <span className="meta-val">{max_streak}W</span>
+                <span className="meta-lbl">MAX STREAK</span>
+              </div>
+            </>
+          )}
+          {biggest_upset && (
+            <>
+              <div className="meta-divider" />
+              <div className="meta-stat"
+                title={`Biggest upset: won R${biggest_upset.round} with only ${biggest_upset.pre_prob}% odds (+${biggest_upset.swing}% swing)`}>
+                <span className="meta-val text-gold">R{biggest_upset.round}</span>
+                <span className="meta-lbl">BIGGEST UPSET</span>
+              </div>
+            </>
+          )}
           {(reportUrl || reportFile) && onOpenReport && (
             <>
               <div className="meta-divider" />
@@ -269,7 +401,44 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         </div>
       </div>
 
-      {/* 3. Two Columns: Match-Swinging Rounds & Economy Efficiency 2x2 */}
+      {/* 3. Live Probability Timeline (Model B Combat Evolution) */}
+      <div className="pmr-card pmr-timeline-card">
+        <div className="card-header">
+          <div className="card-title-group">
+            <span className="card-icon">📈</span>
+            <h3 className="card-title">LIVE PROBABILITY TIMELINE</h3>
+          </div>
+          <span className="card-subtitle">Model B combat evolution per round</span>
+        </div>
+
+        <div className="timeline-hint">
+          <span>▶ Click any round card to open the kill-by-kill combat progression</span>
+        </div>
+
+        <div className="pmr-timeline-grid">
+          {timelineData.map((t, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`pmr-spark-card ${t.won ? 'spark-won' : 'spark-lost'}`}
+              onClick={() => setActiveRound(t)}
+              title={`R${t.round}: click to inspect combat progression`}
+            >
+              <div className="spark-top">
+                <span className="spark-rnd">R{t.round}</span>
+                <span className={`spark-res ${t.won ? 'spark-w' : 'spark-l'}`}>{t.won ? 'W' : 'L'}</span>
+              </div>
+              <Sparkline series={t.series} won={t.won} height={34} />
+              <div className="spark-bottom">
+                <span className="spark-kills">{t.kills.length} K</span>
+                <span className={`spark-swing ${t.won ? 'swing-up' : 'swing-down'}`}>{fmtSwing(t.swing)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Two Columns: Match-Swinging Rounds & Economy Efficiency 2x2 */}
       <div className="pmr-two-col-grid">
         {/* Left Column: Match-Swinging Rounds */}
         <div className="pmr-card pmr-swing-card">
@@ -378,7 +547,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         </div>
       </div>
 
-      {/* 4. Round Breakdown Table */}
+      {/* 5. Round Breakdown Table */}
       <div className="pmr-card pmr-table-card">
         <div className="card-header">
           <div className="card-title-group">
@@ -395,9 +564,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 <th className="th-rnd">RND</th>
                 <th className="th-side">SIDE</th>
                 <th className="th-buy">BUY TYPE</th>
+                <th className="th-eval">BUY ADV</th>
                 <th className="th-prob">PRE-ROUND WIN %</th>
                 <th className="th-kd">K / D</th>
                 <th className="th-res">RESULT</th>
+                <th className="th-swing">SWING</th>
               </tr>
             </thead>
             <tbody>
@@ -407,6 +578,12 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 const isChoke = r.performance === 'choke'
                 const buyLabel = (r.buy_type || 'full_buy').replace('_', ' ').toUpperCase()
                 const isAtk = r.side === 'attack'
+                const rec = String(r.buy_recommendation || '').toLowerCase()
+                const act = String(r.buy_type || 'full_buy').toLowerCase()
+                const isMatch = r.buy_eval
+                  ? String(r.buy_eval).toUpperCase() === 'MATCH'
+                  : (rec && rec === act)
+                const swingVal = Number(r.prob_swing)
                 
                 let k = r.player_kills ?? r.kills_by_local ?? r.kills
                 let d = r.player_deaths ?? r.deaths_by_local ?? r.deaths
@@ -431,6 +608,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                     <td className="td-buy">
                       <span className={`buy-badge buy-${r.buy_type || 'full'}`}>
                         {buyLabel}
+                      </span>
+                    </td>
+                    <td className="td-eval">
+                      <span className={`buyev-badge ${isMatch ? 'ev-match' : 'ev-diff'}`}>
+                        {isMatch ? 'MATCH' : 'DIFF'}
                       </span>
                     </td>
                     <td className="td-prob">
@@ -466,6 +648,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                         )}
                       </div>
                     </td>
+                    <td className="td-swing">
+                      <span className={`swing-val ${!isNaN(swingVal) && swingVal >= 0 ? 'text-ally' : 'text-enemy'}`}>
+                        {fmtSwing(r.prob_swing)}
+                      </span>
+                    </td>
                   </tr>
                 )
               })}
@@ -474,7 +661,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         </div>
       </div>
 
-      {/* 5. Footer Card: Player Performance Summary */}
+      {/* 6. Footer Card: Player Performance Summary */}
       <div className="pmr-card pmr-footer-card">
         <div className="footer-stats-grid">
           <div className="footer-stat">
@@ -511,6 +698,69 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
           </div>
         </div>
       </div>
+
+      {/* Combat Progression Modal */}
+      {activeRound && (
+        <div className="pmr-modal-backdrop" onClick={() => setActiveRound(null)}>
+          <div className="pmr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pmr-modal-header">
+              <div className="pmr-modal-title">
+                <span className="pmr-modal-rnd">ROUND {activeRound.round}</span>
+                <span className={`res-badge ${activeRound.won ? 'badge-w' : 'badge-l'}`}>
+                  {activeRound.won ? 'WIN' : 'LOSS'}
+                </span>
+                {activeRound.performance === 'clutch' && <span className="perf-tag tag-clutch">🔥 CLUTCH</span>}
+                {activeRound.performance === 'choke' && <span className="perf-tag tag-choke">⚠️ CHOKE</span>}
+              </div>
+              <button type="button" className="pmr-modal-close" onClick={() => setActiveRound(null)} aria-label="Close">
+                ✕
+              </button>
+            </div>
+
+            <div className="pmr-modal-meta">
+              <span className={`side-badge ${activeRound.side === 'attack' ? 'side-atk' : 'side-def'}`}>
+                {String(activeRound.side || '').toUpperCase().slice(0, 3)}
+              </span>
+              <span className="buy-badge">{String(activeRound.buyType).replace('_', ' ').toUpperCase()}</span>
+              <span className="pmr-modal-stat">PRE {activeRound.preProb}%</span>
+              <span className="pmr-modal-stat">FINAL {!isNaN(activeRound.finalProb) ? Math.round(activeRound.finalProb) : '—'}%</span>
+              <span className={`pmr-modal-stat ${activeRound.won ? 'text-ally' : 'text-enemy'}`}>
+                SWING {fmtSwing(activeRound.swing)}
+              </span>
+            </div>
+
+            <div className="pmr-modal-chart">
+              <Sparkline series={activeRound.series} won={activeRound.won} width={460} height={140} stretch={false} markers labels />
+            </div>
+
+            <div className="pmr-kill-list">
+              {activeRound.kills.length === 0 && (
+                <div className="no-data-msg">No kills captured this round.</div>
+              )}
+              {activeRound.kills.map((k, i) => {
+                const prev = i === 0 ? activeRound.preProb : Number(activeRound.kills[i - 1].live_prob)
+                const live = Number(k.live_prob)
+                const delta = Math.round((live - prev) * 10) / 10
+                const allyKill = !!k.is_attacker_teammate
+                return (
+                  <div key={i} className={`pmr-kill-row ${allyKill ? 'kill-ally' : 'kill-enemy'}`}>
+                    <span className="kill-idx">K{i + 1}</span>
+                    <span className="kill-event">
+                      <span className="kill-icon">{allyKill ? '🗡️' : '💀'}</span>
+                      {k.attacker} <span className="kill-arrow">→</span> {k.victim}
+                      {k.headshot && <span className="kill-hs"> 💥 HS</span>}
+                    </span>
+                    <span className="kill-alive">{k.att_alive}v{k.def_alive}</span>
+                    <span className="kill-prob">
+                      {live}% <span className={`kill-delta ${delta >= 0 ? 'text-ally' : 'text-enemy'}`}>{delta >= 0 ? '+' : ''}{delta}%</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

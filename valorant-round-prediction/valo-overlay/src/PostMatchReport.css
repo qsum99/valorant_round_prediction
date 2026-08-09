@@ -795,6 +795,313 @@
 .text-gold { color: #e8c468; }
 
 /* --------------------------------------------------------------------------
+   Header Extras: Agent / Date / Accuracy chips
+   -------------------------------------------------------------------------- */
+.header-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.header-sub-chip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.header-sub-agent {
+  color: #e8c468;
+  border-color: rgba(232, 196, 104, 0.3);
+  background: rgba(232, 196, 104, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   3b. Live Probability Timeline (Model B Combat Evolution)
+   -------------------------------------------------------------------------- */
+.timeline-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.pmr-timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.pmr-spark-card {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 33, 0.8);
+  border-radius: 6px;
+  padding: 8px 9px 7px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  color: inherit;
+  font: inherit;
+}
+
+.pmr-spark-card:hover {
+  transform: translateY(-2px);
+}
+
+.spark-won { border-color: rgba(0, 229, 204, 0.35); box-shadow: 0 4px 14px rgba(0, 229, 204, 0.08); }
+.spark-lost { border-color: rgba(255, 70, 85, 0.3); box-shadow: 0 4px 14px rgba(255, 70, 85, 0.06); }
+
+.spark-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.spark-rnd {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.spark-res {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.spark-w { background: rgba(0, 229, 204, 0.16); color: #00e5cc; }
+.spark-l { background: rgba(255, 70, 85, 0.16); color: #ff4655; }
+
+.pmr-spark-svg {
+  display: block;
+  width: 100%;
+}
+
+.spark-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+}
+
+.spark-kills {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.spark-swing {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+}
+.swing-up { color: #e8c468; }
+.swing-down { color: #ff4655; }
+
+/* --------------------------------------------------------------------------
+   3c. Buy Advisor Evaluation + Swing in Breakdown Table
+   -------------------------------------------------------------------------- */
+.buyev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.ev-match { background: rgba(0, 229, 204, 0.15); color: #00e5cc; border: 1px solid rgba(0, 229, 204, 0.3); }
+.ev-diff  { background: rgba(232, 196, 104, 0.15); color: #e8c468; border: 1px solid rgba(232, 196, 104, 0.3); }
+
+.swing-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   3d. Combat Progression Modal
+   -------------------------------------------------------------------------- */
+.pmr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 16, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+  animation: pmrFadeIn 0.2s ease-out;
+}
+
+.pmr-modal {
+  background: linear-gradient(180deg, #0f1923 0%, #0a1218 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 18px 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.pmr-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.pmr-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pmr-modal-rnd {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+}
+
+.pmr-modal-close {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.pmr-modal-close:hover {
+  background: rgba(255, 70, 85, 0.15);
+  color: #ff4655;
+  border-color: rgba(255, 70, 85, 0.4);
+}
+
+.pmr-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pmr-modal-stat {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pmr-modal-chart {
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.pmr-modal-chart .pmr-spark-svg {
+  min-width: 460px;
+}
+
+.pmr-kill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pmr-kill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 33, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.kill-ally { border-left: 3px solid #00e5cc; }
+.kill-enemy { border-left: 3px solid #ff4655; }
+
+.kill-idx {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  min-width: 22px;
+}
+
+.kill-event {
+  flex: 1;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kill-icon {
+  margin-right: 4px;
+}
+
+.kill-arrow {
+  color: #475569;
+  margin: 0 3px;
+}
+
+.kill-hs {
+  color: #e8c468;
+  font-weight: 700;
+}
+
+.kill-alive {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.kill-prob {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kill-delta {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
    General Utility Tokens
    -------------------------------------------------------------------------- */
 .text-ally   { color: #00e5cc; }
@@ -821,6 +1128,13 @@
   .header-meta {
     width: 100%;
     justify-content: space-around;
+    flex-wrap: wrap;
+  }
+  .pmr-modal {
+    max-height: 90vh;
+  }
+  .pmr-modal-backdrop {
+    padding: 12px;
   }
   .footer-stats-grid {
     grid-template-columns: 1fr 1fr;

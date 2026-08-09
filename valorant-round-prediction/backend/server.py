@@ -494,10 +494,49 @@ class MatchRecorder:
             "rounds": self.rounds,
         }
 
-    def generate_report(self, map_name, outcome, final_score_won, final_score_lost):
-        """Generates legacy JSON post-match report payload for overlay compatibility."""
+    def generate_report(self, map_name, outcome, final_score_won, final_score_lost,
+                        local_agent: str = "", local_player_name: str = ""):
+        """Generates JSON post-match report payload for overlay compatibility."""
+        from datetime import datetime
+
         if not self.rounds:
             return None
+
+        # --- Model A accuracy: fraction of rounds correctly predicted ---
+        correct_count = 0
+        for r in self.rounds:
+            pre = r.get("pre_prob", 50.0)
+            is_won = r.get("won", False)
+            if (pre >= 50.0 and is_won) or (pre < 50.0 and not is_won):
+                correct_count += 1
+        model_accuracy = (correct_count / len(self.rounds)) if self.rounds else 0.0
+
+        # --- Max win streak (consecutive won rounds) ---
+        max_streak = 0
+        current_streak = 0
+        for r in self.rounds:
+            if r.get("won"):
+                current_streak += 1
+                max_streak = max(max_streak, current_streak)
+            else:
+                current_streak = 0
+
+        # --- Biggest upset: won round with the lowest pre-round odds ---
+        won_rounds = [r for r in self.rounds if r.get("won")]
+        biggest_upset = None
+        if won_rounds:
+            u = min(won_rounds, key=lambda r: r.get("pre_prob", 100))
+            biggest_upset = {
+                "round": u.get("round_number", u.get("round")),
+                "pre_prob": u.get("pre_prob"),
+                "swing": u.get("prob_swing"),
+            }
+
+        # --- Buy advisor evaluation: MATCH when play followed the recommendation ---
+        for r in self.rounds:
+            rec = str(r.get("buy_recommendation") or "").strip().lower()
+            actual = str(r.get("buy_type") or "").strip().lower()
+            r["buy_eval"] = "MATCH" if (rec and rec == actual) else "DIFF"
 
         # --- Pivotal rounds: largest absolute prob_swing ---
         sorted_by_swing = sorted(
@@ -544,6 +583,12 @@ class MatchRecorder:
             "map": map_name,
             "outcome": outcome,
             "final_score": [final_score_won, final_score_lost],
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "local_agent": local_agent or "Agent",
+            "local_player_name": local_player_name or "Player",
+            "model_accuracy": round(model_accuracy, 3),
+            "max_streak": max_streak,
+            "biggest_upset": biggest_upset,
             "rounds": self.rounds,
             "pivotal_rounds": pivotal,
             "economy": economy,
@@ -922,6 +967,8 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             outcome=outcome,
                             final_score_won=state.score_won,
                             final_score_lost=state.score_lost,
+                            local_agent=state.local_agent,
+                            local_player_name=state.local_player_name,
                         )
 
                         global last_match_end_payload, last_match_report_payload
