@@ -100,17 +100,26 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
 
   // Chart data formatting for Recharts
   const chartData = useMemo(() => {
-    return rounds.map(r => ({
-      name: `R${r.round_number || r.round}`,
-      roundNum: r.round_number || r.round,
-      prob: Math.round(r.pre_prob * 10) / 10,
-      won: r.won,
-      performance: r.performance || 'expected',
-      side: r.side,
-      buyType: r.buy_type || 'full_buy',
-      kills: r.kills_by_local ?? (r.kills ?? 0),
-      deaths: r.deaths_by_local ?? (r.deaths ?? 0),
-    }))
+    return rounds.map(r => {
+      // Safely resolve kills/deaths to a number to prevent React crash if backend sends raw arrays
+      let k = r.player_kills ?? r.kills_by_local ?? r.kills
+      let d = r.player_deaths ?? r.deaths_by_local ?? r.deaths
+      
+      k = Array.isArray(k) ? k.length : (Number(k) || 0)
+      d = Array.isArray(d) ? d.length : (Number(d) || 0)
+
+      return {
+        name: `R${r.round_number || r.round}`,
+        roundNum: r.round_number || r.round,
+        prob: Math.round(r.pre_prob * 10) / 10,
+        won: r.won,
+        performance: r.performance || 'expected',
+        side: r.side,
+        buyType: r.buy_type || 'full_buy',
+        kills: k,
+        deaths: d,
+      }
+    })
   }, [rounds])
 
   // Economy types list
@@ -398,6 +407,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 const isChoke = r.performance === 'choke'
                 const buyLabel = (r.buy_type || 'full_buy').replace('_', ' ').toUpperCase()
                 const isAtk = r.side === 'attack'
+                
+                let k = r.player_kills ?? r.kills_by_local ?? r.kills
+                let d = r.player_deaths ?? r.deaths_by_local ?? r.deaths
+                k = Array.isArray(k) ? k.length : (Number(k) || 0)
+                d = Array.isArray(d) ? d.length : (Number(d) || 0)
 
                 return (
                   <tr
@@ -432,7 +446,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                     </td>
                     <td className="td-kd">
                       <span className="kd-text">
-                        <strong className="text-white">{r.kills ?? 0}</strong> / <span className="text-muted">{r.deaths ?? 0}</span>
+                        <strong className="text-white">{k}</strong> / <span className="text-muted">{d}</span>
                       </span>
                     </td>
                     <td className="td-res">
