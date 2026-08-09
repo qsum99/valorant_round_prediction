@@ -4,6 +4,7 @@ import { ProbBar }      from './ProbBar'
 import { KillFeed }     from './KillFeed'
 import { ScoreBar }     from './ScoreBar'
 import { BuyAdvisor }   from './BuyAdvisor'
+import { PostMatchReport } from './PostMatchReport'
 import './App.css'
 
 const MAX_KILLS = 9
@@ -150,6 +151,16 @@ export default function App() {
   )
 
   if (phase === 'match_end') {
+    if (matchReport) {
+      return (
+        <div className="overlay-root post-match-root">
+          <div className="overlay-panel pmr-panel">
+            <PostMatchReport report={matchReport} />
+          </div>
+        </div>
+      )
+    }
+
     const won = matchOutcome === 'victory'
     return (
       <div className="overlay-root">

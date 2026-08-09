@@ -906,15 +906,38 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                                 outcome = "victory" if state.score_won >= state.score_lost else "defeat"
                         log.info(f"🏁 Match ended — {outcome} ({state.score_won}-{state.score_lost})")
 
-                        global last_match_end_payload
+                        # Finalize last round
+                        if history._current_round:
+                            last_won = state.score_won > state.prev_score_won
+                            history.record_round_end(
+                                round_num=history._current_round.get("round_number", 0),
+                                score_won=state.score_won,
+                                score_lost=state.score_lost,
+                                won=last_won,
+                                final_prob=state.live_prob,
+                            )
+
+                        report = history.generate_report(
+                            map_name=state.map_name or "Valorant",
+                            outcome=outcome,
+                            final_score_won=state.score_won,
+                            final_score_lost=state.score_lost,
+                        )
+
+                        global last_match_end_payload, last_match_report_payload
                         last_match_end_payload = {
                             "type"       : "match_end",
                             "outcome"    : outcome,
                             "score_won"  : state.score_won,
                             "score_lost" : state.score_lost,
                         }
+                        last_match_report_payload = report
 
                         await broadcast(last_match_end_payload)
+                        if report:
+                            log.info(f"📊 Post-match overlay summary sent: {len(report.get('rounds', []))} rounds")
+                            await broadcast(report)
+
                         state.reset()
                         history.reset()
                         last_phase = ""
