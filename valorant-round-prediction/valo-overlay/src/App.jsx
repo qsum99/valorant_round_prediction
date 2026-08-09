@@ -1,10 +1,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { useGameSocket } from './useGameSocket'
-import { ProbBar }      from './ProbBar'
-import { KillFeed }     from './KillFeed'
-import { ScoreBar }     from './ScoreBar'
-import { BuyAdvisor }   from './BuyAdvisor'
-import { PostMatchReport } from './PostMatchReport'
+import { ProbBar }   from './ProbBar'
+import { KillFeed }  from './KillFeed'
+import { ScoreBar }  from './ScoreBar'
 import './App.css'
 
 const MAX_KILLS = 9
@@ -12,7 +10,6 @@ const INITIAL = {
   connected: false, inMatch: false, round: 0, map: '', side: '',
   scoreWon: 0, scoreLost: 0, preProb: 50, liveProb: 50,
   spikePlanted: false, kills: [], phase: 'waiting', matchOutcome: null,
-  matchReport: null, buyRecommendation: null,
 }
 
 export default function App() {
@@ -49,7 +46,6 @@ export default function App() {
           scoreLost: msg.score_lost ?? s.scoreLost,
           preProb: msg.prob, liveProb: msg.prob,
           spikePlanted: false, kills: [],
-          buyRecommendation: msg.buy_recommendation || null,
         }))
         break
       case 'live_update': {
@@ -67,7 +63,6 @@ export default function App() {
             ...s, phase: 'combat', liveProb: next,
             spikePlanted: msg.spike_planted || s.spikePlanted,
             kills: [kill, ...s.kills].slice(0, MAX_KILLS),
-            buyRecommendation: null,  // hide buy card on combat
           }
         })
         break
@@ -85,9 +80,6 @@ export default function App() {
           scoreWon: msg.score_won ?? s.scoreWon,
           scoreLost: msg.score_lost ?? s.scoreLost }))
         break
-      case 'match_report':
-        setState(s => ({ ...s, phase: 'match_end', matchReport: msg }))
-        break
       default: break
     }
   }, [])
@@ -96,8 +88,7 @@ export default function App() {
 
   const { connected, inMatch, phase, round, map, side,
           scoreWon, scoreLost, preProb, liveProb,
-          spikePlanted, kills, matchOutcome, matchReport,
-          buyRecommendation } = state
+          spikePlanted, kills, matchOutcome } = state
 
   if (!connected) return (
     <div className="overlay-root">
@@ -118,16 +109,6 @@ export default function App() {
   )
 
   if (phase === 'match_end') {
-    if (matchReport) {
-      return (
-        <div className="overlay-root post-match-root">
-          <div className="overlay-panel pmr-panel">
-            <PostMatchReport report={matchReport} />
-          </div>
-        </div>
-      )
-    }
-
     const won = matchOutcome === 'victory'
     return (
       <div className="overlay-root">
@@ -145,9 +126,6 @@ export default function App() {
         <ScoreBar scoreWon={scoreWon} scoreLost={scoreLost}
           round={round} map={map} side={side} spikePlanted={spikePlanted} />
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
-        {phase === 'pre_round' && buyRecommendation && (
-          <BuyAdvisor recommendation={buyRecommendation} />
-        )}
         {kills.length > 0 && (
           <div className="kf-section">
             <div className="section-label">ROUND KILLS</div>

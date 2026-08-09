@@ -26,8 +26,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from buy_advisor import BuyAdvisor
-
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -134,8 +132,6 @@ class RoundState:
         self.phase:           str   = ""
         self.score_won:       int   = 0
         self.score_lost:      int   = 0
-        self.prev_score_won:  int   = 0
-        self.prev_score_lost: int   = 0
         self.pre_snap:        dict  = {}
         self.att_alive:       int   = PLAYER_COUNT
         self.def_alive:       int   = PLAYER_COUNT
@@ -285,151 +281,6 @@ class RoundState:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Match history accumulator (for post-match report)
-# ══════════════════════════════════════════════════════════════════════════════
-
-FORCE_BUY_THRESHOLD = 14000  # between eco and full-buy
-
-class MatchHistory:
-    """Accumulates per-round data during a match for the post-match report."""
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.rounds = []          # list of round dicts
-        self._current_round = {}  # in-progress round data
-        self._round_kills = 0
-        self._round_deaths = 0
-
-    def record_round_start(self, round_num, side, score_won, score_lost,
-                           pre_prob, ally_money, enemy_money):
-        """Called at shopping/buy phase."""
-        if round_num <= 1 and score_won == 0 and score_lost == 0:
-            buy_type = "pistol"
-        elif ally_money < ECO_THRESHOLD:
-            buy_type = "eco"
-        elif ally_money < FORCE_BUY_THRESHOLD:
-            buy_type = "force"
-        else:
-            buy_type = "full_buy"
-
-        self._current_round = {
-            "round": round_num,
-            "side": side,
-            "score_before": [score_won, score_lost],
-            "pre_prob": round(pre_prob * 100, 1),
-            "ally_money": ally_money,
-            "enemy_money": enemy_money,
-            "buy_type": buy_type,
-        }
-        self._round_kills = 0
-        self._round_deaths = 0
-
-    def record_kill(self, is_ally_kill):
-        """Called on each kill_feed event."""
-        if is_ally_kill:
-            self._round_kills += 1
-        else:
-            self._round_deaths += 1
-
-    def record_round_end(self, round_num, score_won, score_lost,
-                         won: bool, final_prob: float):
-        """Called at end phase."""
-        if not self._current_round:
-            return
-
-        cr = self._current_round
-        # Accurately determine won if score increased since round start
-        score_before_won = cr.get("score_before", [0, 0])[0]
-        if score_won > score_before_won:
-            is_won = True
-        elif won:
-            is_won = True
-        else:
-            is_won = False
-
-        cr["score_after"] = [score_won, score_lost]
-        cr["won"] = is_won
-        cr["final_prob"] = round(final_prob * 100, 1)
-        cr["kills"] = self._round_kills
-        cr["deaths"] = self._round_deaths
-
-        # Player performance: clutch (won against odds) or choke (lost when favored)
-        pre = cr["pre_prob"]
-        if is_won and pre < 40:
-            cr["performance"] = "clutch"
-        elif not is_won and pre > 60:
-            cr["performance"] = "choke"
-        else:
-            cr["performance"] = "expected"
-
-        # Probability swing: how much the outcome shifted from pre-round expectation
-        if is_won:
-            cr["prob_swing"] = round(100 - pre, 1)
-        else:
-            cr["prob_swing"] = round(-pre, 1)
-
-        self.rounds.append(cr)
-        self._current_round = {}
-
-    def generate_report(self, map_name, outcome, final_score_won, final_score_lost):
-        """Generates the full post-match report payload."""
-        if not self.rounds:
-            return None
-
-        # --- Pivotal rounds: largest absolute prob_swing ---
-        sorted_by_swing = sorted(
-            self.rounds,
-            key=lambda r: abs(r.get("prob_swing", 0)),
-            reverse=True
-        )
-        pivotal = []
-        for r in sorted_by_swing[:3]:
-            swing = r.get("prob_swing", 0)
-            if r["won"]:
-                if r["pre_prob"] < 40:
-                    reason = f"Clutch! Won with only {r['pre_prob']}% odds"
-                elif r["buy_type"] == "eco":
-                    reason = "Huge eco round win — great economy swing"
-                else:
-                    reason = "Key round win that shifted momentum"
-            else:
-                if r["pre_prob"] > 60:
-                    reason = f"Choked with {r['pre_prob']}% odds — should have won"
-                elif r["buy_type"] == "full_buy":
-                    reason = "Lost full-buy — economy wasted"
-                else:
-                    reason = "Key round loss that shifted momentum"
-            pivotal.append({
-                "round": r["round"],
-                "swing": round(abs(swing), 1),
-                "reason": reason,
-                "won": r["won"],
-                "pre_prob": r["pre_prob"],
-            })
-
-        # --- Economy efficiency by buy type ---
-        economy = {}
-        for bt in ("pistol", "eco", "force", "full_buy"):
-            bt_rounds = [r for r in self.rounds if r.get("buy_type") == bt]
-            economy[bt] = {
-                "played": len(bt_rounds),
-                "won": sum(1 for r in bt_rounds if r.get("won")),
-            }
-
-        return {
-            "type": "match_report",
-            "map": map_name,
-            "outcome": outcome,
-            "final_score": [final_score_won, final_score_lost],
-            "rounds": self.rounds,
-            "pivotal_rounds": pivotal,
-            "economy": economy,
-        }
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # Predictor
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -495,7 +346,8 @@ class Predictor:
 
 class LogWatcher:
     """
-    Watches the most recently modified JSON file in raw_matchs_data/ or standard Documents log directory.
+    Watches the most recently modified JSON file in the watch directory
+    or standard Overwolf Documents log directory.
     """
 
     def __init__(self, watch_dir: Path):
@@ -507,11 +359,9 @@ class LogWatcher:
     def get_latest_json(self) -> Path | None:
         candidates = []
         
-        # Check primary project watch_dir (raw_matchs_data/valorant_game_events.json) and Documents fallbacks
+        # Check standard Overwolf log locations in Documents (active match can be up to 30 mins old)
         home = Path.home()
         possible_doc_files = [
-            self.watch_dir / "valorant_game_events.json",
-            self.watch_dir / "valorant_round_data.json",
             home / "OneDrive" / "Documents" / "valorant_game_events.json",
             home / "Documents" / "valorant_game_events.json",
             home / "OneDrive" / "Documents" / "valorant_round_data.json",
@@ -593,7 +443,6 @@ class LogWatcher:
 
 connected_clients: set = set()
 global_state = RoundState()
-match_history = MatchHistory()
 
 async def ws_handler(websocket):
     connected_clients.add(websocket)
@@ -646,9 +495,8 @@ async def broadcast(message: dict):
 # Main game loop
 # ══════════════════════════════════════════════════════════════════════════════
 
-async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyAdvisor):
+async def game_loop(predictor: Predictor, watcher: LogWatcher):
     state      = global_state
-    history    = match_history
     last_phase = ""
     processed  = 0
 
@@ -688,55 +536,14 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                     last_phase = phase
 
                     if phase in ("shopping", "start", "buy") or (phase == "combat" and not state.pre_snap):
-                        # FIRST: finalize the PREVIOUS round now that scores are updated
-                        # (Overwolf updates the score between rounds, not at round end)
-                        if history._current_round:
-                            prev_won = state.score_won > state.prev_score_won
-                            history.record_round_end(
-                                round_num=history._current_round.get("round", 0),
-                                score_won=state.score_won,
-                                score_lost=state.score_lost,
-                                won=prev_won,
-                                final_prob=state.live_prob,
-                            )
-
                         state.capture_pre_round_snapshot()
                         prob = predictor.predict_pre_round(state.pre_snap)
                         state.pre_round_prob = prob
                         state.live_prob      = prob
 
-                        # Snapshot current scores for detecting next round's result
-                        state.prev_score_won  = state.score_won
-                        state.prev_score_lost = state.score_lost
-
-                        # Record for post-match report
-                        ally_money  = state.pre_snap.get("att_money", 0) if state.local_side == "attack" else state.pre_snap.get("def_money", 0)
-                        enemy_money = state.pre_snap.get("def_money", 0) if state.local_side == "attack" else state.pre_snap.get("att_money", 0)
-                        history.record_round_start(
-                            round_num=max(1, state.round_number),
-                            side=state.local_side or "attack",
-                            score_won=state.score_won,
-                            score_lost=state.score_lost,
-                            pre_prob=prob,
-                            ally_money=ally_money,
-                            enemy_money=enemy_money,
-                        )
-
-                        # Run buy recommendation engine
-                        buy_rec = buy_advisor.recommend(
-                            pre_snap=state.pre_snap,
-                            ally_money=ally_money,
-                            enemy_money=enemy_money,
-                            local_side=state.local_side or "attack",
-                            round_number=max(1, state.round_number),
-                            score_won=state.score_won,
-                            score_lost=state.score_lost,
-                        )
-
                         log.info(
                             f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
-                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost}) | "
-                            f"Buy: {buy_rec['recommendation'].upper()}"
+                            f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost})"
                         )
                         await broadcast({
                             "type"      : "pre_round",
@@ -746,12 +553,9 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                             "prob"      : round(prob * 100, 1),
-                            "buy_recommendation": buy_rec,
                         })
 
                     elif phase == "end":
-                        # Just broadcast round_end — actual win/loss is determined
-                        # at the start of the next round when scores are updated
                         await broadcast({
                             "type"      : "round_end",
                             "round"     : max(1, state.round_number),
@@ -762,36 +566,13 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                     elif phase == "game_end":
                         outcome = state.raw.get("match_outcome", "unknown")
                         log.info(f"🏁 Match ended — {outcome}")
-
-                        # Finalize the last round now that scores are final
-                        if history._current_round:
-                            last_won = state.score_won > state.prev_score_won
-                            history.record_round_end(
-                                round_num=history._current_round.get("round", 0),
-                                score_won=state.score_won,
-                                score_lost=state.score_lost,
-                                won=last_won,
-                                final_prob=state.live_prob,
-                            )
-
-                        # Generate and broadcast post-match report
-                        report = history.generate_report(
-                            map_name=state.map_name,
-                            outcome=outcome,
-                            final_score_won=state.score_won,
-                            final_score_lost=state.score_lost,
-                        )
                         await broadcast({
                             "type"      : "match_end",
                             "outcome"   : outcome,
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
                         })
-                        if report:
-                            log.info(f"📊 Post-match report: {len(report['rounds'])} rounds, {len(report['pivotal_rounds'])} pivotal")
-                            await broadcast(report)
                         state.reset()
-                        history.reset()
                         last_phase = ""
 
             # ── Event: kill_feed, spike, match_start ───────────────────────
@@ -829,7 +610,6 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             (state.local_side == "attack"  and kf_data.get("is_attacker_teammate")) or
                             (state.local_side == "defense" and not kf_data.get("is_attacker_teammate"))
                         )
-                        history.record_kill(is_ally_kill)
 
                         log.info(
                             f"  Kill {state.kill_index}: {attacker} → {victim}"
@@ -855,7 +635,6 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                     elif name == "match_start":
                         log.info("🎮 Match started!")
                         state.reset(keep_side=True)
-                        history.reset()
                         last_phase = ""
                         await broadcast({"type": "match_start"})
 
@@ -878,8 +657,6 @@ async def main():
 
     model_a, model_b = load_models()
     predictor = Predictor(model_a, model_b)
-    advisor   = BuyAdvisor(model_a, A_FEATURES)
-    log.info("💰 Buy recommendation engine initialized")
 
     watch_dir = LOG_WATCH_DIR
     if not watch_dir.exists():
@@ -890,7 +667,7 @@ async def main():
 
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT, process_request=process_request):
         log.info(f"WebSocket server running on ws://{WS_HOST}:{WS_PORT}")
-        await game_loop(predictor, watcher, advisor)
+        await game_loop(predictor, watcher)
 
 
 if __name__ == "__main__":

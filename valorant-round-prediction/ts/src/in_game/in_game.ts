@@ -2,8 +2,7 @@ import {
   OWGames,
   OWGameListener,
   OWGamesEvents,
-  OWHotkeys,
-  OWWindow
+  OWHotkeys
 } from "@overwolf/overwolf-api-ts";
 
 import { AppWindow } from "../AppWindow";
@@ -45,10 +44,10 @@ class InGame extends AppWindow {
 
   public async run() {
     try {
-      const currentInfo = await OWWindow.getCurrentInfo();
-      if (currentInfo && currentInfo.id) {
+      const inGameState = await this.getWindowState();
+      if (inGameState && (inGameState as any).window_id) {
         (overwolf.windows as any).setWindowFlags(
-          currentInfo.id,
+          (inGameState as any).window_id,
           ["InputPassThrough"],
           (res: any) => console.log("InputPassThrough set:", res)
         );

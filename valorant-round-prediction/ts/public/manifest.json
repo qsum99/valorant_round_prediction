@@ -23,8 +23,7 @@
     "hotkeys": {
       "sample_app_ts_showhide": {
         "title": "Show/Hide In-Game Window",
-        "action-type": "custom",
-        "passthrough": true,
+        "action-type": "toggle",
         "default": "Ctrl+F"
       }
     },
