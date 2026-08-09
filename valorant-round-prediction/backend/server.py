@@ -683,15 +683,15 @@ class LogWatcher:
         if is_new_file:
             log.info(f"📂 Watching match file: {latest.name}")
 
-        self.current_file = latest
-        self.last_mtime   = mtime
-
         try:
             with open(latest, "r", encoding="utf-8") as f:
                 content = f.read().strip()
             if not content:
                 return [], is_new_file
             events = self._try_parse_array(content)
+            if events:
+                self.current_file = latest
+                self.last_mtime   = mtime
             return events, is_new_file
         except Exception as e:
             log.debug(f"Poll read error: {e}")

@@ -124,9 +124,7 @@ async def replay(source_file: Path, fast: bool = False, delay: float = EVENT_DEL
     with open(source_file, encoding="utf-8") as f:
         events = json.load(f)
 
-    if OUTPUT_FILE.exists():
-        OUTPUT_FILE.unlink()
-
+    # Removed unlink to prevent Windows PermissionError if server is reading
     await asyncio.sleep(2)
 
     written = []
@@ -138,12 +136,17 @@ async def replay(source_file: Path, fast: bool = False, delay: float = EVENT_DEL
         for i, event in enumerate(events):
             written.append(event)
             if (i + 1) % batch_size == 0 or (i + 1) == len(events):
-                with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-                    json.dump(written, f)
+                for _ in range(10):
+                    try:
+                        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+                            json.dump(written, f)
+                        break
+                    except PermissionError:
+                        await asyncio.sleep(0.05)
                 await asyncio.sleep(0.01)
 
             if (i + 1) % 1000 == 0:
-                print(f"[Replay] {i + 1}/{len(events)} events written...")
+                print(f"[Replay] {i + 1}/{len(events)} events written...", flush=True)
     else:
         print(f"[Replay] Replaying {len(events)} events at {1/delay:.0f}x speed (delay={delay}s)...")
         print("[Replay] Watch the listener terminal for predictions!\n")
