@@ -20,7 +20,37 @@ const BUY_ICONS = {
   pistol:   '🔫',
 }
 
-export function BuyAdvisor({ recommendation }) {
+const ENEMY_COLORS = {
+  eco:      { color: '#22c55e', border: 'rgba(34, 197, 94, 0.4)', bg: 'rgba(34, 197, 94, 0.12)' },
+  force:    { color: '#e8c468', border: 'rgba(232, 196, 104, 0.4)', bg: 'rgba(232, 196, 104, 0.12)' },
+  full_buy: { color: '#ff4655', border: 'rgba(255, 70, 85, 0.4)', bg: 'rgba(255, 70, 85, 0.12)' },
+  pistol:   { color: '#94a3b8', border: 'rgba(148, 163, 184, 0.4)', bg: 'rgba(148, 163, 184, 0.12)' },
+}
+
+// Mirrors backend classify_buy thresholds (fallback if server is outdated)
+function classifyEnemy(enemy_money, round) {
+  const m = Number(enemy_money) || 0
+  const r = Number(round) || 0
+  if (r === 1 || r === 13) return 'pistol'
+  if (m < 10000) return 'eco'
+  if (m < 14000) return 'force'
+  return 'full_buy'
+}
+
+function EnemyBadge({ enemy_buy, enemy_money, round }) {
+  const key = enemy_buy || classifyEnemy(enemy_money, round)
+  const c = ENEMY_COLORS[key] || ENEMY_COLORS.pistol
+  const label = BUY_LABELS[key]
+    ? `ENEMY: ${BUY_LABELS[key]}`
+    : `ENEMY: ${String(key).toUpperCase().replace('_', ' ')}`
+  return (
+    <span className="enemy-badge" style={{ color: c.color, background: c.bg, borderColor: c.border }}>
+      {label}
+    </span>
+  )
+}
+
+export function BuyAdvisor({ recommendation, round }) {
   if (!recommendation) return null
 
   const { recommendation: rec, reason, scenarios, urgency, context,
@@ -100,9 +130,7 @@ export function BuyAdvisor({ recommendation }) {
         <span className="ba-econ-ally">
           Your team: <strong>{(ally_money || 0).toLocaleString()}</strong>
         </span>
-        <span className="ba-econ-enemy">
-          Enemy: <strong>{(enemy_money || 0).toLocaleString()}</strong>
-        </span>
+        <EnemyBadge enemy_buy={recommendation.enemy_buy} enemy_money={enemy_money} round={round} />
       </div>
     </div>
   )

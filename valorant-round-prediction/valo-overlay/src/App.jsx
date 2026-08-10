@@ -179,7 +179,7 @@ export default function App() {
           round={round} map={map} side={side} spikePlanted={spikePlanted} />
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
         {buyRecommendation && (phase === 'pre_round' || kills.length === 0) && (
-          <BuyAdvisor recommendation={buyRecommendation} />
+          <BuyAdvisor recommendation={buyRecommendation} round={round} />
         )}
         {kills.length > 0 && (
           <div className="kf-section">

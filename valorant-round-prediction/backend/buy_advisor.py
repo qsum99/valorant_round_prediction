@@ -155,6 +155,7 @@ class BuyAdvisor:
             "current_buy": current_buy,
             "ally_money": ally_money,
             "enemy_money": enemy_money,
+            "enemy_buy": classify_buy(enemy_money, round_number),
         }
 
     # ═════════════════════════════════════════════════════════════════════════
@@ -336,6 +337,7 @@ class BuyAdvisor:
             "current_buy": "pistol",
             "ally_money": 4_000,
             "enemy_money": 4_000,
+            "enemy_buy": "pistol",
         }
 
     def _overtime_result(self, pre_snap, local_side, score_won, score_lost) -> dict:
@@ -356,4 +358,5 @@ class BuyAdvisor:
             "current_buy": "full_buy",
             "ally_money": 25_000,
             "enemy_money": 25_000,
+            "enemy_buy": "full_buy",
         }
