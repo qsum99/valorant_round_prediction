@@ -158,7 +158,10 @@ def extract_from_file(filepath):
         live_rows - list of dicts (one per kill event per round)
     """
     with open(filepath, encoding="utf-8") as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError:
+            return [], []
 
     source = Path(filepath).name
 
