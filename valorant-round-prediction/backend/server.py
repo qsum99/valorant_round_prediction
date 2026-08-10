@@ -73,6 +73,30 @@ PLAYER_COUNT   = 5
 FULL_BUY_THRESHOLD = 19500
 ECO_THRESHOLD      = 10000
 
+# ── Overwolf agent codenames → display names ──────────────────────────────────
+AGENT_NAMES = {
+    "Clay": "Raze", "Pandemic": "Viper", "Wraith": "Omen", "Hunter": "Sova",
+    "Thorne": "Sage", "Phoenix": "Phoenix", "Wushu": "Jett", "Gumshoe": "Cypher",
+    "Sarge": "Brimstone", "Breach": "Breach", "Vampire": "Reyna",
+    "Killjoy": "Killjoy", "Guide": "Skye", "Stealth": "Yoru", "Rift": "Astra",
+    "Grenadier": "KAY/O", "Deadeye": "Chamber", "Sprinter": "Neon",
+    "BountyHunter": "Fade", "Mage": "Harbor", "AggroBot": "Gekko",
+    "Cable": "Deadlock", "Sequoia": "Iso", "Smonk": "Clove", "Nox": "Vyse",
+    "Cashew": "Tejo", "Terra": "Waylay",
+}
+
+
+def resolve_agent_name(raw):
+    """Map an Overwolf agent codename to its display name."""
+    if not raw:
+        return raw
+    s = str(raw)
+    for code in sorted(AGENT_NAMES, key=len, reverse=True):
+        if code.lower() in s.lower():
+            return AGENT_NAMES[code]
+    import re
+    return re.sub(r"(_PC_C|_PostDeath)$", "", s)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Model loader
@@ -182,7 +206,7 @@ class RoundState:
                             if p.get("name"):
                                 self.local_player_name = str(p["name"]).split("#")[0].strip()
                             if p.get("character") or p.get("agent"):
-                                self.local_agent = p.get("character") or p.get("agent")
+                                self.local_agent = resolve_agent_name(p.get("character") or p.get("agent"))
                 except Exception:
                     pass
 
