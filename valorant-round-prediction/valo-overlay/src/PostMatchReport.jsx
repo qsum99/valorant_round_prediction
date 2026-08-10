@@ -12,6 +12,62 @@ import {
 import { toPng } from 'html-to-image'
 import './PostMatchReport.css'
 
+// Overwolf agent codenames → display names (fallback if backend sends raw codes)
+const AGENT_NAMES = {
+  Clay: 'Raze', Pandemic: 'Viper', Wraith: 'Omen', Hunter: 'Sova', Thorne: 'Sage',
+  Phoenix: 'Phoenix', Wushu: 'Jett', Gumshoe: 'Cypher', Sarge: 'Brimstone',
+  Breach: 'Breach', Vampire: 'Reyna', Killjoy: 'Killjoy', Guide: 'Skye',
+  Stealth: 'Yoru', Rift: 'Astra', Grenadier: 'KAY/O', Deadeye: 'Chamber',
+  Sprinter: 'Neon', BountyHunter: 'Fade', Mage: 'Harbor', AggroBot: 'Gekko',
+  Cable: 'Deadlock', Sequoia: 'Iso', Smonk: 'Clove', Nox: 'Vyse',
+  Cashew: 'Tejo', Terra: 'Waylay',
+}
+
+// Longest-first so "BountyHunter" never matches "Hunter"
+const AGENT_CODE_ORDER = Object.keys(AGENT_NAMES).sort((a, b) => b.length - a.length)
+
+function resolveAgentName(raw) {
+  if (!raw) return raw
+  const s = String(raw)
+  for (const code of AGENT_CODE_ORDER) {
+    if (s.toLowerCase().includes(code.toLowerCase())) return AGENT_NAMES[code]
+  }
+  return s.replace(/_PC_C$|_PostDeath$/i, '')
+}
+
+// Overwolf map codenames → display names (fallback if backend sends raw codes)
+const MAP_NAMES = {
+  Infinity: 'Abyss',
+  Triad: 'Haven',
+  Duality: 'Bind',
+  Bonsai: 'Split',
+  Ascent: 'Ascent',
+  Port: 'Icebox',
+  Foxtrot: 'Breeze',
+  Canyon: 'Fracture',
+  Pitt: 'Pearl',
+  Jam: 'Lotus',
+  Juliett: 'Sunset',
+  Rook: 'Corrode',
+  Range: 'Practice Range',
+  HURM_Alley: 'District',
+  HURM_Yard: 'Piazza',
+  HURM_Bowl: 'Kasbah',
+  HURM_Helix: 'Drift',
+  HURM_HighTide: 'Glitch',
+}
+
+const MAP_CODE_ORDER = Object.keys(MAP_NAMES).sort((a, b) => b.length - a.length)
+
+function resolveMapName(raw) {
+  if (!raw) return raw
+  const s = String(raw)
+  for (const code of MAP_CODE_ORDER) {
+    if (s.toLowerCase() === code.toLowerCase()) return MAP_NAMES[code]
+  }
+  return s
+}
+
 // Custom Tooltip for Recharts Win Probability Bar Chart
 function CustomChartTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null
@@ -196,6 +252,8 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
   } = report || {}
 
   const isVictory = outcome.toLowerCase() === 'victory'
+  const displayAgent = resolveAgentName(local_agent)
+  const displayMap = resolveMapName(map)
   const totalRounds = rounds.length
   const wonCount = rounds.filter(r => r.won).length
   const lostCount = totalRounds - wonCount
@@ -327,10 +385,10 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
             </span>
             <span className="mode-pill">COMPETITIVE</span>
           </div>
-          <div className="map-title">{(map && map.trim()) ? map.toUpperCase() : 'VALORANT'}</div>
+          <div className="map-title">{(displayMap && displayMap.trim()) ? displayMap.toUpperCase() : 'VALORANT'}</div>
           {(local_agent || date) && (
             <div className="header-sub-row">
-              {local_agent && <span className="header-sub-chip header-sub-agent">🎮 {local_agent}</span>}
+              {displayAgent && <span className="header-sub-chip header-sub-agent">🎮 {displayAgent}</span>}
               {date && <span className="header-sub-chip">📅 {date}</span>}
             </div>
           )}

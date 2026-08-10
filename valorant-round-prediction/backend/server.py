@@ -199,10 +199,13 @@ class RoundState:
             raw_map = str(self.raw["map"]).strip()
             if raw_map and raw_map.lower() != "null":
                 MAP_NAME_MAPPINGS = {
-                    "triad": "Haven", "duality": "Bind", "bonsai": "Split",
-                    "ascent": "Ascent", "port": "Icebox", "foxtrot": "Breeze",
-                    "canyon": "Fracture", "pitt": "Pearl", "jam": "Lotus",
-                    "jujutsu": "Sunset", "abyss": "Abyss",
+                    "infinity": "Abyss", "triad": "Haven", "duality": "Bind",
+                    "bonsai": "Split", "ascent": "Ascent", "port": "Icebox",
+                    "foxtrot": "Breeze", "canyon": "Fracture", "pitt": "Pearl",
+                    "jam": "Lotus", "juliett": "Sunset", "rook": "Corrode",
+                    "range": "Practice Range", "hurr_alley": "District",
+                    "hurr_yard": "Piazza", "hurr_bowl": "Kasbah",
+                    "hurr_helix": "Drift", "hurr_hightide": "Glitch",
                 }
                 self.map_name = MAP_NAME_MAPPINGS.get(raw_map.lower(), raw_map)
 
