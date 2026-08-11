@@ -781,7 +781,7 @@
 .pmr-comp-row:last-child { border-bottom: none; }
 .pmr-comp-agent { font-weight: 600; color: #f1f5f9; }
 .pmr-comp-name  { color: #8b9099; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pmr-comp-rank  { font-weight: 700; color: #e8c468; white-space: nowrap; font-size: 11px; }
+.pmr-comp-rank  { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #e8c468; white-space: nowrap; font-size: 11px; }
 
 
 .res-cell {

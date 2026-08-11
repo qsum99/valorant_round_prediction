@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from 'recharts'
 import { toPng } from 'html-to-image'
+import { RankBadge } from './RankBadge'
 import './PostMatchReport.css'
 
 // Overwolf agent codenames → display names (fallback if backend sends raw codes)
@@ -735,7 +736,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                   <div className="pmr-comp-row" key={`a${i}`}>
                     <span className="pmr-comp-agent">{p.agent}</span>
                     <span className="pmr-comp-name">{p.name}</span>
-                    <span className="pmr-comp-rank">{p.rank}</span>
+                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} />{p.rank}</span>
                   </div>
                 ))}
               </div>
@@ -745,7 +746,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                   <div className="pmr-comp-row" key={`e${i}`}>
                     <span className="pmr-comp-agent">{p.agent}</span>
                     <span className="pmr-comp-name">{p.name}</span>
-                    <span className="pmr-comp-rank">{p.rank}</span>
+                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} />{p.rank}</span>
                   </div>
                 ))}
               </div>

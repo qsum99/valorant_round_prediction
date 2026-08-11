@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RankBadge } from './RankBadge'
 import './TeamComp.css'
 
 function Row({ p, side }) {
@@ -6,7 +7,10 @@ function Row({ p, side }) {
     <div className={`tc-row ${side}`}>
       <span className="tc-agent">{p.agent}</span>
       <span className="tc-name">{p.name}</span>
-      <span className="tc-rank">{p.rank}</span>
+      <span className="tc-rank">
+        <RankBadge rank={p.rank} />
+        {p.rank}
+      </span>
     </div>
   )
 }

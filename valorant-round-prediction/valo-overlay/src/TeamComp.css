@@ -117,8 +117,17 @@
 }
 
 .tc-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-weight: 600;
   font-size: 10px;
   color: var(--gold);
   white-space: nowrap;
+}
+
+.rank-badge {
+  flex-shrink: 0;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
 }
