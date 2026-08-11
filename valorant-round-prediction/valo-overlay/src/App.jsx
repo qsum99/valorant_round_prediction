@@ -164,7 +164,6 @@ export default function App() {
 
   if (!connected) return (
     <div className="overlay-root">
-      {teamCompWidget}
       <div className="overlay-panel status-panel">
         <div className="status-dot disconnected" />
         <span className="status-text">Connecting to backend…</span>
@@ -174,7 +173,6 @@ export default function App() {
 
   if (!inMatch || phase === 'waiting') return (
     <div className="overlay-root">
-      {teamCompWidget}
       <div className="overlay-panel status-panel">
         <div className="status-dot connected" />
         <span className="status-text">Waiting for match to start</span>
@@ -205,11 +203,10 @@ export default function App() {
 
   return (
     <div className="overlay-root">
-      {teamCompWidget}
       <div className="overlay-panel main-panel">
         <ScoreBar scoreWon={scoreWon} scoreLost={scoreLost}
           round={round} map={map} side={side} spikePlanted={spikePlanted}
-          spikeSite={spikeSite} spikeCarrier={spikeCarrier} />
+          spikeSite={spikeSite} spikeCarrier={spikeCarrier} actions={teamCompWidget} />
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
         {spikeEvent && (
           <div className={`spike-banner ${spikeEvent.type === 'spike_detonated' ? 'det' : 'def'}`}>

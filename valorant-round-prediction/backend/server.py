@@ -465,7 +465,7 @@ class RoundState:
                 agent = "?"
             rank  = format_rank(p.get("rank"))
             entry = {"name": name, "agent": agent, "rank": rank}
-            if p.get("teammate") is True or p.get("team") == 1:
+            if p.get("teammate") is True:
                 allies.append(entry)
             else:
                 enemies.append(entry)
@@ -1050,12 +1050,13 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         # (Overwolf updates the score between rounds, not at round end)
                         if history._current_round:
                             prev_won = state.score_won > state.prev_score_won
+                            pending_fp = history._current_round.pop("final_prob_pending", None)
                             history.record_round_end(
                                 round_num=history._current_round.get("round_number", 0),
                                 score_won=state.score_won,
                                 score_lost=state.score_lost,
                                 won=prev_won,
-                                final_prob=state.live_prob,
+                                final_prob=pending_fp if pending_fp is not None else state.live_prob,
                                 round_report=parse_round_report(state.last_round_report),
                             )
 
@@ -1115,16 +1116,11 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         # Round-report (damage/headshots/etc.) for the local player
                         summary = parse_round_report(state.last_round_report)
 
-                        # Finalize the round with the damage summary attached
+                        # Stash the end-of-round live probability; the round itself
+                        # is finalized at the next shopping phase when the score has
+                        # actually been updated by the stream.
                         if history._current_round:
-                            history.record_round_end(
-                                round_num=history._current_round.get("round_number", 0),
-                                score_won=state.score_won,
-                                score_lost=state.score_lost,
-                                won=state.score_won > state.prev_score_won,
-                                final_prob=state.live_prob,
-                                round_report=summary,
-                            )
+                            history._current_round["final_prob_pending"] = state.live_prob
 
                         # Just broadcast round_end — actual win/loss is determined
                         # at the start of the next round when scores are updated
@@ -1157,12 +1153,14 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         # Finalize last round
                         if history._current_round:
                             last_won = state.score_won > state.prev_score_won
+                            pending_fp = history._current_round.pop("final_prob_pending", None)
                             history.record_round_end(
                                 round_num=history._current_round.get("round_number", 0),
                                 score_won=state.score_won,
                                 score_lost=state.score_lost,
                                 won=last_won,
-                                final_prob=state.live_prob,
+                                final_prob=pending_fp if pending_fp is not None else state.live_prob,
+                                round_report=parse_round_report(state.last_round_report),
                             )
 
                         report = history.generate_report(

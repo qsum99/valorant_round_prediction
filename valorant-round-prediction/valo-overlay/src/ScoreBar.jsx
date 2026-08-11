@@ -1,6 +1,6 @@
 import './ScoreBar.css'
 
-export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted, spikeSite, spikeCarrier }) {
+export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted, spikeSite, spikeCarrier, actions }) {
   return (
     <div className="score-bar">
       <div className="sb-left">
@@ -20,6 +20,7 @@ export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted, 
         )}
       </div>
       <div className="sb-right">
+        {actions}
         <span className={`sb-side ${side === 'attack' ? 'atk' : 'def'}`}>
           {side === 'attack' ? 'ATK' : 'DEF'}
         </span>

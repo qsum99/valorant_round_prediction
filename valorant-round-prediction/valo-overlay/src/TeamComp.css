@@ -1,8 +1,6 @@
 .tc-wrap {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10000;
+  position: relative;
+  display: inline-flex;
   pointer-events: none;
 }
 
@@ -53,7 +51,10 @@
 
 .tc-panel {
   pointer-events: auto;
-  margin-top: 8px;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10000;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
