@@ -559,10 +559,19 @@
   text-align: center;
 }
 
-/* Economy Efficiency 2x2 Grid */
+/* Match-Swinging Rounds card (full-width) */
+.pmr-swing-card {
+  grid-column: 1 / -1;
+}
+
+/* Economy Efficiency 4x2 Grid (full-width) */
+.pmr-econ-card {
+  grid-column: 1 / -1;
+}
+
 .econ-2x2-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   grid-template-rows: 1fr 1fr;
   gap: 10px;
 }
@@ -576,6 +585,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.15);
 }
@@ -585,28 +595,32 @@
   box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.15), 0 0 12px var(--tile-accent-glow, transparent);
 }
 .econ-tile-empty {
-  opacity: 0.6;
+  opacity: 0.45;
+  padding: 10px 14px;
+  gap: 4px;
 }
 
 .econ-tile-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
 }
 
 .econ-type-label {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   color: var(--tile-accent, #cbd5e1);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .econ-tile-icon {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .econ-wr-badge {
@@ -617,6 +631,7 @@
   padding: 1px 7px;
   border-radius: 3px;
   border: 1px solid;
+  flex-shrink: 0;
 }
 
 .econ-tile-number {
@@ -629,6 +644,11 @@
   font-weight: 800;
   line-height: 1;
   text-shadow: 0 0 16px var(--tile-accent-dim, transparent);
+}
+
+.econ-tile-empty .big-wr {
+  font-size: 18px;
+  opacity: 0.5;
 }
 
 .econ-bar-track {

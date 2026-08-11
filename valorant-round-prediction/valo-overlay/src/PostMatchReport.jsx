@@ -372,7 +372,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     { key: 'pistol',   label: 'PISTOL',    color: '#94a3b8', icon: '🔫' },
     { key: 'eco',      label: 'ECO',       color: '#22c55e', icon: '💰' },
     { key: 'force',    label: 'FORCE BUY', color: '#e8c468', icon: '⚔️' },
+    { key: 'half_buy', label: 'HALF BUY',  color: '#fb923c', icon: '🥋' },
     { key: 'full_buy', label: 'FULL BUY',  color: '#4fc3f7', icon: '🛡️' },
+    { key: 'bonus',    label: 'BONUS',     color: '#a78bfa', icon: '💸' },
+    { key: 'anti_eco', label: 'ANTI-ECO',  color: '#fb923c', icon: '⚡' },
+    { key: 'broken',   label: 'BROKEN',    color: '#e879f9', icon: '🧩' },
   ]
 
   return (
@@ -882,44 +886,6 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               })}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* 6. Footer Card: Player Performance Summary */}
-      <div className="pmr-card pmr-footer-card">
-        <div className="footer-stats-grid">
-          <div className="footer-stat">
-            <div className="footer-stat-icon">🔥</div>
-            <div className="footer-stat-info">
-              <span className="footer-stat-val text-gold">{playerStats.clutchCount}</span>
-              <span className="footer-stat-label">CLUTCH ROUNDS</span>
-              <span className="footer-stat-desc">Won with &lt;40% odds</span>
-            </div>
-          </div>
-          <div className="footer-stat">
-            <div className="footer-stat-icon">⚠️</div>
-            <div className="footer-stat-info">
-              <span className="footer-stat-val text-enemy">{playerStats.chokeCount}</span>
-              <span className="footer-stat-label">CHOKE ROUNDS</span>
-              <span className="footer-stat-desc">Lost with &gt;60% odds</span>
-            </div>
-          </div>
-          <div className="footer-stat">
-            <div className="footer-stat-icon">✅</div>
-            <div className="footer-stat-info">
-              <span className="footer-stat-val text-ally">{playerStats.favoredPct}%</span>
-              <span className="footer-stat-label">WIN RATE WHEN FAVORED</span>
-              <span className="footer-stat-desc">{playerStats.favoredWins}W / {playerStats.favoredTotal - playerStats.favoredWins}L ({playerStats.favoredTotal} rounds)</span>
-            </div>
-          </div>
-          <div className="footer-stat">
-            <div className="footer-stat-icon">🎲</div>
-            <div className="footer-stat-info">
-              <span className="footer-stat-val" style={{ color: playerStats.underdogPct > 30 ? '#e8c468' : '#94a3b8' }}>{playerStats.underdogPct}%</span>
-              <span className="footer-stat-label">WIN RATE AS UNDERDOG</span>
-              <span className="footer-stat-desc">{playerStats.underdogWins}W / {playerStats.underdogTotal - playerStats.underdogWins}L ({playerStats.underdogTotal} rounds)</span>
-            </div>
-          </div>
         </div>
       </div>
 

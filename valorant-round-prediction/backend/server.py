@@ -743,10 +743,12 @@ class MatchRecorder:
                 "pre_prob": r["pre_prob"],
             })
 
-        # --- Economy efficiency by buy type ---
+        # --- Economy efficiency by buy category (BuyAdvisor states) ---
+        advisor_cats = ("pistol", "eco", "force", "half_buy", "full_buy", "bonus", "anti_eco", "broken")
         economy = {}
-        for bt in ("pistol", "eco", "force", "full_buy"):
-            bt_rounds = [r for r in self.rounds if r.get("buy_type") == bt]
+        for bt in advisor_cats:
+            bt_rounds = [r for r in self.rounds
+                         if str(r.get("buy_recommendation") or r.get("buy_type") or "").strip().lower() == bt]
             economy[bt] = {
                 "played": len(bt_rounds),
                 "won": sum(1 for r in bt_rounds if r.get("won")),
