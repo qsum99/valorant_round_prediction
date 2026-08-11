@@ -367,12 +367,12 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
 
   if (!report) return null
 
-  // Economy types list
+  // Economy types list with accent colors matching BuyAdvisor palette
   const econTypes = [
-    { key: 'pistol', label: 'PISTOL' },
-    { key: 'eco', label: 'ECO' },
-    { key: 'force', label: 'FORCE BUY' },
-    { key: 'full_buy', label: 'FULL BUY' },
+    { key: 'pistol',   label: 'PISTOL',    color: '#94a3b8', icon: '🔫' },
+    { key: 'eco',      label: 'ECO',       color: '#22c55e', icon: '💰' },
+    { key: 'force',    label: 'FORCE BUY', color: '#e8c468', icon: '⚔️' },
+    { key: 'full_buy', label: 'FULL BUY',  color: '#4fc3f7', icon: '🛡️' },
   ]
 
   return (
@@ -669,7 +669,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
           </div>
 
           <div className="econ-2x2-grid">
-            {econTypes.map(({ key, label }) => {
+            {econTypes.map(({ key, label, color, icon }) => {
               const stat = economy[key] || { played: 0, won: 0 }
               const played = stat.played || 0
               const won = stat.won || 0
@@ -678,33 +678,43 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               const isHigh = winRate >= 50
 
               return (
-                <div key={key} className={`econ-tile ${played === 0 ? 'econ-tile-empty' : ''}`}>
+                <div
+                  key={key}
+                  className={`econ-tile ${played === 0 ? 'econ-tile-empty' : ''}`}
+                  style={{ '--tile-accent': color, '--tile-accent-dim': `${color}22`, '--tile-accent-glow': `${color}33` }}
+                >
                   <div className="econ-tile-header">
-                    <span className="econ-type-label">{label}</span>
+                    <span className="econ-type-label">
+                      <span className="econ-tile-icon">{icon}</span>
+                      {label}
+                    </span>
                     {played > 0 && (
-                      <span className={`econ-wr-badge ${isHigh ? 'badge-teal' : 'badge-red'}`}>
+                      <span className="econ-wr-badge" style={{ background: `${color}22`, color, borderColor: `${color}44` }}>
                         {winRate}% WR
                       </span>
                     )}
                   </div>
 
                   <div className="econ-tile-number">
-                    <span className={`big-wr ${played === 0 ? 'text-muted' : isHigh ? 'text-ally' : 'text-enemy'}`}>
+                    <span className="big-wr" style={{ color: played > 0 ? color : '#64748b' }}>
                       {played > 0 ? `${winRate}%` : '—'}
                     </span>
                   </div>
 
-                  {/* Mini Progress Bar */}
                   <div className="econ-bar-track">
                     <div
-                      className={`econ-bar-fill ${isHigh ? 'fill-ally' : 'fill-enemy'}`}
-                      style={{ width: `${played > 0 ? winRate : 0}%` }}
+                      className="econ-bar-fill"
+                      style={{
+                        width: `${played > 0 ? winRate : 0}%`,
+                        background: `linear-gradient(90deg, ${color}66, ${color})`,
+                        boxShadow: `0 0 6px ${color}44`,
+                      }}
                     />
                   </div>
 
                   <div className="econ-tile-record">
                     {played > 0 ? (
-                      <span><strong>{won}W</strong> - <strong>{lost}L</strong> ({played} played)</span>
+                      <span><strong style={{ color }}>{won}W</strong> - <strong>{lost}L</strong> <span className="econ-tile-played">({played} played)</span></span>
                     ) : (
                       <span className="text-muted">0 rounds played</span>
                     )}

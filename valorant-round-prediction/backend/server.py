@@ -236,8 +236,12 @@ class RoundState:
         self.def_kills:       int   = 0
         self.kill_index:      int   = 0
         self.spike_planted:   bool  = False
+        self.planted_this_round: bool = False
+        self.last_round_planted: bool = False
         self.spike_site:      str   = ""
         self.spike_carrier:   str   = ""
+        self.ally_streak:     int   = 0
+        self.enemy_streak:    int   = 0
         self.last_round_report: dict | str | None = None
         self.pre_round_prob:  float = 0.5
         self.live_prob:       float = 0.5
@@ -428,6 +432,7 @@ class RoundState:
 
     def on_spike_planted(self, site: str = "", carrier: str = ""):
         self.spike_planted = True
+        self.planted_this_round = True
         self.spike_site = site or ""
         self.spike_carrier = carrier or ""
 
@@ -1059,7 +1064,15 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                                 final_prob=pending_fp if pending_fp is not None else state.live_prob,
                                 round_report=parse_round_report(state.last_round_report),
                             )
+                            # Update loss streaks from the last round's result
+                            if prev_won:
+                                state.ally_streak, state.enemy_streak = 0, state.enemy_streak + 1
+                            else:
+                                state.ally_streak, state.enemy_streak = state.ally_streak + 1, 0
 
+                        # Carry over the plant flag for next-round economy projection
+                        state.last_round_planted = state.planted_this_round
+                        state.planted_this_round = False
                         state.capture_pre_round_snapshot()
                         prob = predictor.predict_pre_round(state.pre_snap)
                         state.pre_round_prob = prob
@@ -1069,18 +1082,25 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         state.prev_score_won  = state.score_won
                         state.prev_score_lost = state.score_lost
 
-                        ally_money  = state.pre_snap.get("att_money", 0) if state.local_side == "attack" else state.pre_snap.get("def_money", 0)
-                        enemy_money = state.pre_snap.get("def_money", 0) if state.local_side == "attack" else state.pre_snap.get("att_money", 0)
+                        ally_players, enemy_players = state.get_scoreboard()
+                        ally_moneys  = [max(0, int(p.get("money") or 0)) for p in ally_players]
+                        enemy_moneys = [max(0, int(p.get("money") or 0)) for p in enemy_players]
+                        ally_money  = sum(ally_moneys)
+                        enemy_money = sum(enemy_moneys)
 
                         # Run buy recommendation engine
                         buy_rec = buy_advisor.recommend(
                             pre_snap=state.pre_snap,
-                            ally_money=ally_money,
-                            enemy_money=enemy_money,
+                            ally_moneys=ally_moneys,
+                            enemy_moneys=enemy_moneys,
                             local_side=state.local_side or "attack",
                             round_number=max(1, state.round_number),
                             score_won=state.score_won,
                             score_lost=state.score_lost,
+                            ally_streak=state.ally_streak,
+                            enemy_streak=state.enemy_streak,
+                            plant_last=state.last_round_planted,
+                            last_buy_rec=state.last_buy_rec,
                         )
                         state.last_buy_rec = buy_rec
 
