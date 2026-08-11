@@ -60,14 +60,13 @@ function RadiantBadge({ color }) {
   )
 }
 
-export function RankBadge({ rank, size = 16 }) {
+export function RankBadge({ rank, size = 18 }) {
   const s = String(rank || '')
   const parts = s.split(' ')
   const tier = parts[0]
   const color = TIER_COLORS[tier] || TIER_COLORS.Unranked
   const isRadiant = tier === 'Radiant'
   const division = Number(parts[1]) || 0
-  const pips = Math.max(0, Math.min(2, division - 1))
 
   if (isRadiant) {
     return (
@@ -117,16 +116,20 @@ export function RankBadge({ rank, size = 16 }) {
       {/* Detail overlay */}
       <path d={detailPath} fill="#fff" opacity="0.25" />
 
-      {/* Division pips (subtle notches at bottom) */}
-      {pips >= 1 && (
-        <g opacity="0.6">
-          <path d="M10 20 L11 18.5 L12 20 L13 18.5 L14 20" fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
-        </g>
-      )}
-      {pips >= 2 && (
-        <g opacity="0.6">
-          <path d="M10 17.5 L11 16 L12 17.5 L13 16 L14 17.5" fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
-        </g>
+      {/* Division number inside the emblem (01 / 02 / 03), like the in-game rank icon */}
+      {division > 0 && (
+        <text
+          x="12"
+          y="21"
+          textAnchor="middle"
+          fontSize="6"
+          fontWeight="700"
+          fill="#e8edf2"
+          opacity="0.95"
+          style={{ fontFamily: 'Arial, sans-serif' }}
+        >
+          {String(division).padStart(2, '0')}
+        </text>
       )}
     </svg>
   )
