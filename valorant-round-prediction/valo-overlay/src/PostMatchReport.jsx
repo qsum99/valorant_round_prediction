@@ -249,6 +249,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     model_accuracy = null,
     max_streak = 0,
     biggest_upset = null,
+    team_comp = {},
   } = report || {}
 
   const isVictory = outcome.toLowerCase() === 'victory'
@@ -714,7 +715,46 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         </div>
       </div>
 
-      {/* 5. Round Breakdown Table */}
+      {/* 5. Team & Ranks */}
+      {(() => {
+        const allies = team_comp.allies || []
+        const enemies = team_comp.enemies || []
+        if (!allies.length && !enemies.length) return null
+        return (
+          <div className="pmr-card">
+            <div className="card-header">
+              <div className="card-title-group">
+                <span className="card-icon">🏅</span>
+                <h3 className="card-title">TEAM & RANKS</h3>
+              </div>
+            </div>
+            <div className="pmr-comp-grid">
+              <div className="pmr-comp-col">
+                <div className="pmr-comp-label comp-ally">YOUR TEAM</div>
+                {allies.map((p, i) => (
+                  <div className="pmr-comp-row" key={`a${i}`}>
+                    <span className="pmr-comp-agent">{p.agent}</span>
+                    <span className="pmr-comp-name">{p.name}</span>
+                    <span className="pmr-comp-rank">{p.rank}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pmr-comp-col">
+                <div className="pmr-comp-label comp-enemy">ENEMIES</div>
+                {enemies.map((p, i) => (
+                  <div className="pmr-comp-row" key={`e${i}`}>
+                    <span className="pmr-comp-agent">{p.agent}</span>
+                    <span className="pmr-comp-name">{p.name}</span>
+                    <span className="pmr-comp-rank">{p.rank}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 6. Round Breakdown Table */}
       <div className="pmr-card pmr-table-card">
         <div className="card-header">
           <div className="card-title-group">
@@ -734,6 +774,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 <th className="th-eval">BUY ADV</th>
                 <th className="th-prob">PRE-ROUND WIN %</th>
                 <th className="th-kd">K / D</th>
+                <th className="th-dmg">DMG</th>
                 <th className="th-res">RESULT</th>
                 <th className="th-swing">SWING</th>
               </tr>
@@ -796,6 +837,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                     <td className="td-kd">
                       <span className="kd-text">
                         <strong className="text-white">{k}</strong> / <span className="text-muted">{d}</span>
+                      </span>
+                    </td>
+                    <td className="td-dmg">
+                      <span className="dmg-text">
+                        {r.round_report ? Math.round(Number(r.round_report.damage) || 0) : '—'}
                       </span>
                     </td>
                     <td className="td-res">

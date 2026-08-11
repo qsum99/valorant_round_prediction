@@ -748,6 +748,42 @@
   font-size: 12px;
 }
 
+.dmg-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8c468;
+}
+
+/* Team & Ranks report section */
+.pmr-comp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.pmr-comp-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin-bottom: 8px;
+}
+.pmr-comp-label.comp-ally  { color: #ff4655; }
+.pmr-comp-label.comp-enemy { color: #4fc3f7; }
+.pmr-comp-row {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+.pmr-comp-row:last-child { border-bottom: none; }
+.pmr-comp-agent { font-weight: 600; color: #f1f5f9; }
+.pmr-comp-name  { color: #8b9099; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pmr-comp-rank  { font-weight: 700; color: #e8c468; white-space: nowrap; font-size: 11px; }
+
+
 .res-cell {
   display: flex;
   align-items: center;

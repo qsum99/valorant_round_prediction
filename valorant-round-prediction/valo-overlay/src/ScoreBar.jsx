@@ -1,6 +1,6 @@
 import './ScoreBar.css'
 
-export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted }) {
+export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted, spikeSite, spikeCarrier }) {
   return (
     <div className="score-bar">
       <div className="sb-left">
@@ -9,7 +9,12 @@ export function ScoreBar({ scoreWon, scoreLost, round, map, side, spikePlanted }
         <span className="sb-score enemy-text">{scoreLost}</span>
       </div>
       <div className="sb-center">
-        {spikePlanted && <span className="sb-spike">💣 SPIKE PLANTED</span>}
+        {spikePlanted && (
+          <span className="sb-spike">
+            💣 SPIKE AT {spikeSite || '?'}
+            {spikeCarrier && <span className="sb-spike-carrier"> — {spikeCarrier}</span>}
+          </span>
+        )}
         {!spikePlanted && map && (
           <span className="sb-map">{map.toUpperCase()}</span>
         )}

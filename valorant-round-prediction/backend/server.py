@@ -98,6 +98,72 @@ def resolve_agent_name(raw):
     return re.sub(r"(_PC_C|_PostDeath)$", "", s)
 
 
+# ── Overwolf rank codes → full tier names ──────────────────────────────────────
+RANK_NAMES = {
+    0: "Unranked", 3: "Iron 1", 4: "Iron 2", 5: "Iron 3",
+    6: "Bronze 1", 7: "Bronze 2", 8: "Bronze 3",
+    9: "Silver 1", 10: "Silver 2", 11: "Silver 3",
+    12: "Gold 1", 13: "Gold 2", 14: "Gold 3",
+    15: "Platinum 1", 16: "Platinum 2", 17: "Platinum 3",
+    18: "Diamond 1", 19: "Diamond 2", 20: "Diamond 3",
+    21: "Ascendant 1", 22: "Ascendant 2", 23: "Ascendant 3",
+    24: "Immortal 1", 25: "Immortal 2", 26: "Immortal 3",
+    27: "Radiant",
+}
+
+
+def format_rank(rank) -> str:
+    """Convert an Overwolf roster rank (code 0-27 or tier name string) to a full tier name."""
+    if rank is None:
+        return "Unranked"
+    if isinstance(rank, str):
+        s = rank.strip()
+        if not s or s.lower() in ("none", "null", "unknown", "unranked", "?"):
+            return "Unranked"
+        for name in RANK_NAMES.values():
+            if s.lower() == name.lower():
+                return name
+        try:
+            return RANK_NAMES.get(int(s), s)
+        except ValueError:
+            return s
+    try:
+        return RANK_NAMES.get(int(rank), "Unranked")
+    except (ValueError, TypeError):
+        return "Unranked"
+
+
+def parse_round_report(raw):
+    """Parse the Overwolf per-round report into a numeric summary dict or None."""
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            return None
+    if not isinstance(raw, dict):
+        return None
+
+    def num(v):
+        try:
+            return float(v) if v is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    return {
+        "damage": num(raw.get("damage")),
+        "hit": num(raw.get("hit")),
+        "headshot": num(raw.get("headshot")),
+        "bodyshots": num(raw.get("bodyshots")),
+        "legshots": num(raw.get("legshots")),
+        "final_headshot": num(raw.get("final_headshot")),
+        "damage_received": num(raw.get("damage_received")),
+        "hits_received": num(raw.get("hits_received")),
+        "ability_damage": num(raw.get("ability_damage")),
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Model loader
 # ══════════════════════════════════════════════════════════════════════════════
@@ -151,6 +217,7 @@ class RoundState:
 
     def reset(self, keep_side=False):
         self.raw: dict = {}
+        self.team_comp_snapshot: dict = {}
         self.round_number:    int   = 0
         if not keep_side:
             self.map_name:          str = ""
@@ -169,6 +236,9 @@ class RoundState:
         self.def_kills:       int   = 0
         self.kill_index:      int   = 0
         self.spike_planted:   bool  = False
+        self.spike_site:      str   = ""
+        self.spike_carrier:   str   = ""
+        self.last_round_report: dict | str | None = None
         self.pre_round_prob:  float = 0.5
         self.live_prob:       float = 0.5
         self.last_buy_rec:    dict | None = None
@@ -181,6 +251,10 @@ class RoundState:
         for k, v in mi.items():
             if v is not None:
                 self.raw[k] = v
+
+        # Track per-round report explicitly (value may be null to signal "no data")
+        if "round_report" in mi:
+            self.last_round_report = mi.get("round_report")
 
         # Check "me" object if present in data or mi
         me_data = data.get("me") if isinstance(data, dict) else None
@@ -311,6 +385,8 @@ class RoundState:
         self.def_kills     = 0
         self.kill_index    = 0
         self.spike_planted = False
+        self.spike_site    = ""
+        self.spike_carrier = ""
         return True
 
     def on_kill(self, kf: dict) -> dict:
@@ -350,8 +426,71 @@ class RoundState:
             "kill_progress": round(self.kill_index / 10.0, 4),
         }
 
-    def on_spike_planted(self):
+    def on_spike_planted(self, site: str = "", carrier: str = ""):
         self.spike_planted = True
+        self.spike_site = site or ""
+        self.spike_carrier = carrier or ""
+
+    def on_spike_cleared(self):
+        self.spike_planted = False
+        self.spike_site = ""
+        self.spike_carrier = ""
+
+    def build_team_comp(self) -> dict:
+        """Build {allies, enemies} team lists from roster/scoreboard data (name, agent, rank).
+
+        Only named (non-observer, non-wiped) entries are used; allies are identified
+        via the teammate flag or team code 1. Gaps (missing players or wiped ranks)
+        are filled from the match-start snapshot, which holds the full ranked roster.
+        """
+        allies, enemies, seen = [], [], set()
+        for i in range(20):
+            raw = self.raw.get(f"roster_{i}") or self.raw.get(f"scoreboard_{i}")
+            if not raw:
+                continue
+            try:
+                p = json.loads(raw) if isinstance(raw, str) else raw
+            except Exception:
+                continue
+            if not isinstance(p, dict) or not str(p.get("name") or "").strip():
+                continue
+            pid = p.get("player_id") or p.get("id") or p.get("puuid")
+            key = pid or str(p["name"]).strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            name  = str(p.get("name") or "?").split("#")[0].strip() or "?"
+            agent = resolve_agent_name(p.get("character") or p.get("agent") or "")
+            if agent in (None, "", "None", "null", "?"):
+                agent = "?"
+            rank  = format_rank(p.get("rank"))
+            entry = {"name": name, "agent": agent, "rank": rank}
+            if p.get("teammate") is True or p.get("team") == 1:
+                allies.append(entry)
+            else:
+                enemies.append(entry)
+
+        snap = self.team_comp_snapshot or {}
+        if snap:
+            snap_all = snap.get("allies", []) + snap.get("enemies", [])
+            snap_by_name = {p["name"]: p for p in snap_all}
+            names = {p["name"] for p in allies + enemies}
+            for p in snap.get("allies", []):
+                if len(allies) < 5 and p["name"] not in names:
+                    allies.append(p); names.add(p["name"])
+            for p in snap.get("enemies", []):
+                if len(enemies) < 5 and p["name"] not in names:
+                    enemies.append(p); names.add(p["name"])
+            for p in allies + enemies:
+                cached = snap_by_name.get(p["name"])
+                if not cached:
+                    continue
+                if p["rank"] == "Unranked" and cached["rank"] != "Unranked":
+                    p["rank"] = cached["rank"]
+                if p["agent"] == "?" and cached["agent"] != "?":
+                    p["agent"] = cached["agent"]
+
+        return {"allies": allies, "enemies": enemies}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -451,12 +590,14 @@ class MatchRecorder:
         pass
 
     def on_round_end(self, round_num: int, score_won: int, score_lost: int,
-                     won: bool, final_prob: float):
+                     won: bool, final_prob: float, round_report: dict | None = None):
         """Called at end phase."""
         if not self._current_round:
             return
 
         cr = self._current_round
+        if round_report:
+            cr["round_report"] = round_report
         score_before_won = cr.get("score_before", [0, 0])[0]
         if score_won > score_before_won:
             is_won = True
@@ -522,7 +663,8 @@ class MatchRecorder:
         }
 
     def generate_report(self, map_name, outcome, final_score_won, final_score_lost,
-                        local_agent: str = "", local_player_name: str = ""):
+                        local_agent: str = "", local_player_name: str = "",
+                        team_comp: dict | None = None):
         """Generates JSON post-match report payload for overlay compatibility."""
         from datetime import datetime
 
@@ -613,6 +755,7 @@ class MatchRecorder:
             "date": datetime.now().strftime("%Y-%m-%d"),
             "local_agent": local_agent or "Agent",
             "local_player_name": local_player_name or "Player",
+            "team_comp": team_comp or {},
             "model_accuracy": round(model_accuracy, 3),
             "max_streak": max_streak,
             "biggest_upset": biggest_upset,
@@ -855,6 +998,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
     history    = match_history
     last_phase = ""
     processed  = 0
+    last_comp_sig = ""
 
     log.info(f"👁  Watching: {watcher.watch_dir}")
     log.info(f"🌐 WebSocket: ws://{WS_HOST}:{WS_PORT}")
@@ -884,6 +1028,15 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                 data_block = item.get("data", {})
                 mi = data_block.get("match_info", {})
                 state.update_from_info(data_block)
+
+                # Broadcast team composition + ranks whenever rosters change
+                comp = state.build_team_comp()
+                if comp and (comp["allies"] or comp["enemies"]):
+                    sig = json.dumps(comp, sort_keys=True)
+                    if sig != last_comp_sig:
+                        last_comp_sig = sig
+                        await broadcast({"type": "team_comp", **comp})
+
                 if not mi:
                     continue
 
@@ -903,6 +1056,7 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                                 score_lost=state.score_lost,
                                 won=prev_won,
                                 final_prob=state.live_prob,
+                                round_report=parse_round_report(state.last_round_report),
                             )
 
                         state.capture_pre_round_snapshot()
@@ -958,6 +1112,20 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                         })
 
                     elif phase == "end":
+                        # Round-report (damage/headshots/etc.) for the local player
+                        summary = parse_round_report(state.last_round_report)
+
+                        # Finalize the round with the damage summary attached
+                        if history._current_round:
+                            history.record_round_end(
+                                round_num=history._current_round.get("round_number", 0),
+                                score_won=state.score_won,
+                                score_lost=state.score_lost,
+                                won=state.score_won > state.prev_score_won,
+                                final_prob=state.live_prob,
+                                round_report=summary,
+                            )
+
                         # Just broadcast round_end — actual win/loss is determined
                         # at the start of the next round when scores are updated
                         await broadcast({
@@ -965,10 +1133,18 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             "round"     : max(1, state.round_number),
                             "score_won" : state.score_won,
                             "score_lost": state.score_lost,
+                            "summary"   : summary,
                         })
 
                     elif phase in ("game_end", "match_end"):
                         outcome = state.raw.get("match_outcome", "")
+                        # A mid-match "game_end" phase (practice/range or a glitchy
+                        # stream) fires with an incomplete score — ignore it so we
+                        # don't wipe live state or generate a bogus report.
+                        if (not outcome or outcome == "unknown") and max(state.score_won, state.score_lost) < 13:
+                            log.info(f"⏭️ Ignoring non-final game_end ({state.score_won}-{state.score_lost})")
+                            last_phase = phase
+                            continue
                         if not outcome or outcome == "unknown":
                             if state.score_won > state.score_lost or state.score_won >= 13:
                                 outcome = "victory"
@@ -996,8 +1172,8 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             final_score_lost=state.score_lost,
                             local_agent=state.local_agent,
                             local_player_name=state.local_player_name,
+                            team_comp=state.build_team_comp() or None,
                         )
-
                         global last_match_end_payload, last_match_report_payload
                         last_match_end_payload = {
                             "type"       : "match_end",
@@ -1022,9 +1198,35 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                     name = ev.get("name")
 
                     if name == "planted_location":
-                        state.on_spike_planted()
-                        log.info(f"💣 Spike planted on {ev.get('data', '?')}")
-                        await broadcast({"type": "spike_planted", "site": ev.get("data", "")})
+                        site = ev.get("data", "") or ""
+                        carrier = ""
+                        for i in range(10):
+                            sb = state.raw.get(f"scoreboard_{i}")
+                            if not sb:
+                                continue
+                            try:
+                                p = json.loads(sb) if isinstance(sb, str) else sb
+                            except Exception:
+                                continue
+                            if p.get("spike") is True and p.get("name"):
+                                carrier = str(p["name"]).split("#")[0].strip()
+                                break
+                        state.on_spike_planted(site, carrier)
+                        log.info(f"💣 Spike planted on {site or '?'}{' by ' + carrier if carrier else ''}")
+                        await broadcast({
+                            "type": "spike_planted",
+                            "site": site,
+                            "carrier": carrier,
+                        })
+
+                    elif name in ("spike_defused", "spike_detonated"):
+                        site = state.spike_site or ""
+                        state.on_spike_cleared()
+                        if name == "spike_defused":
+                            log.info(f"🛡️ Spike defused on {site or '?'}")
+                        else:
+                            log.info(f"💥 Spike detonated on {site or '?'}")
+                        await broadcast({"type": name, "site": site})
 
                     elif name == "kill_feed":
                         if not state.pre_snap:
@@ -1083,7 +1285,9 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
 
                     elif name == "match_start":
                         log.info("🎮 Match started!")
+                        snapshot = state.build_team_comp()
                         state.reset(keep_side=True)
+                        state.team_comp_snapshot = snapshot
                         history.reset()
                         last_phase = ""
                         await broadcast({"type": "match_start"})

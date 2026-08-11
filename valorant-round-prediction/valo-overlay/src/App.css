@@ -216,4 +216,27 @@
   transform: translateY(-1px);
 }
 
+/* Spike defuse / detonation banner */
+.spike-banner {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  animation: rsSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.spike-banner.def {
+  background: var(--enemy-dim);
+  border: 1px solid var(--enemy);
+  color: var(--enemy);
+}
+.spike-banner.det {
+  background: var(--ally-dim);
+  border: 1px solid var(--ally);
+  color: var(--ally);
+}
+
 
