@@ -9,7 +9,7 @@ function Row({ p, side }) {
       <span className="tc-name">{p.name}</span>
       <span className="tc-rank">
         <RankBadge rank={p.rank} />
-        {p.rank}
+        <span className="tc-rank-label">{p.rank}</span>
       </span>
     </div>
   )

@@ -66,7 +66,6 @@ export function RankBadge({ rank, size = 18 }) {
   const tier = parts[0]
   const color = TIER_COLORS[tier] || TIER_COLORS.Unranked
   const isRadiant = tier === 'Radiant'
-  const division = Number(parts[1]) || 0
 
   if (isRadiant) {
     return (
@@ -115,22 +114,6 @@ export function RankBadge({ rank, size = 18 }) {
 
       {/* Detail overlay */}
       <path d={detailPath} fill="#fff" opacity="0.25" />
-
-      {/* Division number inside the emblem (01 / 02 / 03), like the in-game rank icon */}
-      {division > 0 && (
-        <text
-          x="12"
-          y="21"
-          textAnchor="middle"
-          fontSize="6"
-          fontWeight="700"
-          fill="#e8edf2"
-          opacity="0.95"
-          style={{ fontFamily: 'Arial, sans-serif' }}
-        >
-          {String(division).padStart(2, '0')}
-        </text>
-      )}
     </svg>
   )
 }
