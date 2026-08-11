@@ -8,7 +8,7 @@ function Row({ p, side }) {
       <span className="tc-agent">{p.agent}</span>
       <span className="tc-name">{p.name}</span>
       <span className="tc-rank">
-        <RankBadge rank={p.rank} />
+        <RankBadge rank={p.rank} size={22} />
         <span className="tc-rank-label">{p.rank}</span>
       </span>
     </div>
