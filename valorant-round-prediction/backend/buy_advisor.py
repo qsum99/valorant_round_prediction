@@ -210,6 +210,17 @@ class BuyAdvisor:
 
         best = max(scenarios, key=lambda k: scenarios[k]["two_round_ev"])
 
+        # ── VCT affordability gate ───────────────────────────────────────────
+        # The recommendation must match what the team can actually buy:
+        # a team that already has full-buy credits never saves, and a team
+        # with nothing to buy never forces. Model EV only decides the
+        # ambiguous middle band (2,000-3,899 /player).
+        if ally_state == "full_buy":
+            best = "full_buy"
+        elif not (score_won >= 12 or score_lost >= 12) and \
+             all(m < ECO_FLOOR for m in ally_moneys):
+            best = "eco"
+
         # Match point in EITHER direction: no round left to save for — spend all.
         if (score_won >= 12 or score_lost >= 12) and best == "eco":
             best = "force"
@@ -220,7 +231,7 @@ class BuyAdvisor:
         )
         reason = self._generate_reason(
             best, scenarios, ally_money, enemy_money, ally_state, enemy_state,
-            ally_streak, plant_last,
+            ally_streak, plant_last, ally_moneys, local_side,
         )
 
         return {
@@ -358,13 +369,19 @@ class BuyAdvisor:
     # ═════════════════════════════════════════════════════════════════════════
 
     def _generate_reason(self, best, scenarios, ally_money, enemy_money,
-                         ally_state, enemy_state, ally_streak, plant_last) -> str:
+                         ally_state, enemy_state, ally_streak, plant_last,
+                         ally_moneys, local_side) -> str:
         this = scenarios[best]["this_round"]
         ev = scenarios[best]["two_round_ev"]
         econ_diff = ally_money - enemy_money
         lb = loss_bonus(ally_streak + 1)
 
         if best == "full_buy":
+            if ally_state == "full_buy":
+                floor = FULL_BUY_FLOOR - (DEFENSE_SHIFT if local_side == "defense" else 0)
+                rifles = sum(1 for m in ally_moneys if m >= floor)
+                return (f"{rifles}/5 players have rifle money (≥{floor:,} each). "
+                        f"Never save with full-buy credits.")
             if econ_diff > 5_000:
                 return (f"Economy advantage (+{econ_diff:,}). Full buy wins {this:.0f}% "
                         f"this round — the VCT play vs {enemy_state.replace('_', ' ')}.")
