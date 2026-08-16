@@ -207,6 +207,16 @@ export default function App() {
         <ScoreBar scoreWon={scoreWon} scoreLost={scoreLost}
           round={round} map={map} side={side} spikePlanted={spikePlanted}
           spikeSite={spikeSite} spikeCarrier={spikeCarrier} actions={teamCompWidget} />
+        {spikePlanted && (
+          <div className={`spike-planted-banner ${side === 'defense' ? 'enemy-plant' : 'ally-plant'}`}>
+            <span className="spb-icon">💣</span>
+            <span className="spb-text">
+              {side === 'defense' ? 'ENEMY SPIKE' : 'SPIKE PLANTED'}
+            </span>
+            <span className="spb-site">SITE {spikeSite || '?'}</span>
+            {spikeCarrier && <span className="spb-carrier">{spikeCarrier}</span>}
+          </div>
+        )}
         <ProbBar pre={preProb} live={liveProb} animating={animating} />
         {spikeEvent && (
           <div className={`spike-banner ${spikeEvent.type === 'spike_detonated' ? 'det' : 'def'}`}>

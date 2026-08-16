@@ -239,4 +239,55 @@
   color: var(--ally);
 }
 
+/* Spike planted banner (live, while planted) */
+.spike-planted-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  animation: rsSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.spike-planted-banner.ally-plant {
+  background: rgba(232, 196, 104, 0.12);
+  border: 1px solid #e8c468;
+  color: #e8c468;
+  box-shadow: 0 0 18px rgba(232, 196, 104, 0.25);
+}
+.spike-planted-banner.enemy-plant {
+  background: rgba(255, 70, 85, 0.14);
+  border: 1px solid #ff4655;
+  color: #ff4655;
+  animation: rsSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1), enemyPlantPulse 1s ease-in-out infinite;
+}
+.spb-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.spb-text {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
+}
+.spb-site {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.spb-carrier {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+  margin-left: 2px;
+}
+@keyframes enemyPlantPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 70, 85, 0.35); }
+  50%      { box-shadow: 0 0 26px rgba(255, 70, 85, 0.7); }
+}
+
 
