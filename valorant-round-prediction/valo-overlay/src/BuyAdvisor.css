@@ -1,25 +1,20 @@
-/* ==========================================================================
-   BuyAdvisor — Shopping Phase Recommendation Card
-   Redesigned: better color combos, visual hierarchy, accent glow
-   ========================================================================== */
-
 .buy-advisor {
-  margin-top: 12px;
+  position: relative;
+  margin-top: 10px;
   padding: 10px 12px;
-  background: var(--surface2);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-left: 3px solid var(--ba-accent, var(--ally));
   border-radius: var(--radius);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2), var(--ba-accent-glow, none);
-  animation: baSlideIn 0.3s ease-out;
+  animation: baSlideIn var(--transition-base) ease-out;
+  overflow: hidden;
 }
 
 @keyframes baSlideIn {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
 .ba-header {
   display: flex;
   align-items: center;
@@ -30,70 +25,74 @@
 .ba-rec-group {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 
 .ba-icon {
-  font-size: 15px;
-  filter: drop-shadow(0 0 4px var(--ba-accent-bg, transparent));
+  flex-shrink: 0;
 }
 
 .ba-rec-label {
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ba-accent, var(--text-1));
-  text-shadow: 0 0 12px var(--ba-accent-bg, transparent);
 }
 
 .ba-urgency {
   font-family: var(--font-display);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.1em;
-  padding: 2px 8px;
-  border-radius: 3px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
   border: 1px solid;
+  text-transform: uppercase;
 }
 
-/* ── Reason ──────────────────────────────────────────────────────────────── */
 .ba-reason {
   font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-2);
   line-height: 1.4;
   margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 
-/* ── Scenario Comparison Bars ────────────────────────────────────────────── */
 .ba-scenarios {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 8px;
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius);
+  background: var(--surface2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 
 .ba-sc-header {
+  display: flex;
+  justify-content: space-between;
   font-family: var(--font-display);
   font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--text-3);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-4);
   margin-bottom: 2px;
+  text-transform: uppercase;
 }
 
 .ba-scenario-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
+  opacity: 0.65;
+  transition: opacity var(--transition-fast);
 }
 
 .ba-scenario-row.ba-selected {
@@ -104,25 +103,25 @@
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-3);
   width: 32px;
   flex-shrink: 0;
-  transition: color 0.2s ease;
+  text-transform: uppercase;
 }
 
 .ba-sc-bar-track {
   flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
+  height: 5px;
+  background: var(--surface3);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .ba-sc-bar-fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease, background 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 2px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ba-sc-pct {
@@ -133,52 +132,45 @@
   width: 34px;
   text-align: right;
   flex-shrink: 0;
-  transition: color 0.2s ease;
 }
 
 .ba-sc-ev {
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--text-3);
+  color: var(--text-4);
   width: 48px;
   text-align: right;
   flex-shrink: 0;
-  transition: color 0.2s ease;
 }
 
-/* ── Plan ─────────────────────────────────────────────────────────────────── */
 .ba-plan {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--gold);
-  margin-bottom: 5px;
-  padding: 4px 8px;
-  background: rgba(232, 196, 104, 0.06);
-  border: 1px solid rgba(232, 196, 104, 0.15);
-  border-radius: var(--radius);
+  margin-bottom: 6px;
+  padding: 5px 8px;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .ba-plan-icon {
-  font-weight: 700;
-  color: var(--gold);
-  font-size: 11px;
+  flex-shrink: 0;
 }
 
-/* ── Context ─────────────────────────────────────────────────────────────── */
 .ba-context {
   font-family: var(--font-body);
-  font-size: 10px;
-  color: var(--text-3);
+  font-size: 9px;
+  color: var(--text-4);
   font-style: italic;
   margin-bottom: 6px;
   padding: 4px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-subtle);
 }
 
-/* ── Economy Row ─────────────────────────────────────────────────────────── */
 .ba-econ-row {
   display: flex;
   justify-content: space-between;
@@ -186,31 +178,37 @@
   font-family: var(--font-body);
   font-size: 10px;
   color: var(--text-3);
-  padding-top: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ba-econ-ally {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .ba-econ-ally strong {
-  color: var(--ally);
-  font-weight: 600;
+  color: var(--text-1);
+  font-family: var(--font-mono);
 }
 
-.ba-econ-enemy strong {
-  color: var(--enemy);
-  font-weight: 600;
-}
-
-/* ── Enemy buy status badge ─────────────────────────────────────────────── */
 .enemy-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  border-radius: 3px;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid;
+  text-transform: uppercase;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buy-advisor {
+    animation: none !important;
+  }
 }

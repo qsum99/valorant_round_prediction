@@ -8,16 +8,25 @@ export function RoundSummary({ summary }) {
   const received = Math.round(summary.damage_received || 0)
 
   return (
-    <div className="rs-wrap">
-      <div className="rs-title">ROUND SUMMARY</div>
-      <div className="rs-row">
-        <span className="rs-stat"><b>{dmg}</b> dmg</span>
-        <span className="rs-sep">•</span>
-        <span className="rs-stat"><b>{hs}</b> HS</span>
-        <span className="rs-sep">•</span>
-        <span className="rs-stat"><b>{ability}</b> ability</span>
-        <span className="rs-sep">•</span>
-        <span className="rs-stat"><b>{received}</b> taken</span>
+    <div className="rs-wrap" role="region" aria-label="Round summary">
+      <div className="rs-title">ROUND PERFORMANCE</div>
+      <div className="rs-grid">
+        <div className="rs-stat">
+          <span className="rs-stat-value text-gold">{dmg}</span>
+          <span className="rs-stat-label">DMG DEALT</span>
+        </div>
+        <div className="rs-stat">
+          <span className="rs-stat-value text-ally">{hs}</span>
+          <span className="rs-stat-label">HEADSHOTS</span>
+        </div>
+        <div className="rs-stat">
+          <span className="rs-stat-value text-purple">{ability}</span>
+          <span className="rs-stat-label">ABILITY</span>
+        </div>
+        <div className="rs-stat">
+          <span className="rs-stat-value text-enemy">{received}</span>
+          <span className="rs-stat-label">TAKEN</span>
+        </div>
       </div>
     </div>
   )

@@ -10,10 +10,30 @@ import {
   Tooltip,
 } from 'recharts'
 import { toPng } from 'html-to-image'
+import { 
+  Trophy, 
+  Flame, 
+  AlertTriangle, 
+  TrendingUp, 
+  Download, 
+  FileSpreadsheet, 
+  ExternalLink, 
+  X, 
+  Search, 
+  Calendar, 
+  User, 
+  Activity,
+  Zap,
+  Crosshair,
+  Shield
+} from 'lucide-react'
 import { RankBadge } from './RankBadge'
+import { SpotlightCard } from './components/SpotlightCard'
+import { BorderBeam } from './components/BorderBeam'
+import { ShinyText } from './components/ShinyText'
 import './PostMatchReport.css'
 
-// Overwolf agent codenames → display names (fallback if backend sends raw codes)
+// Overwolf agent codenames → display names
 const AGENT_NAMES = {
   Clay: 'Raze', Pandemic: 'Viper', Wraith: 'Omen', Hunter: 'Sova', Thorne: 'Sage',
   Phoenix: 'Phoenix', Wushu: 'Jett', Gumshoe: 'Cypher', Sarge: 'Brimstone',
@@ -24,7 +44,6 @@ const AGENT_NAMES = {
   Cashew: 'Tejo', Terra: 'Waylay',
 }
 
-// Longest-first so "BountyHunter" never matches "Hunter"
 const AGENT_CODE_ORDER = Object.keys(AGENT_NAMES).sort((a, b) => b.length - a.length)
 
 function resolveAgentName(raw) {
@@ -36,7 +55,7 @@ function resolveAgentName(raw) {
   return s.replace(/_PC_C$|_PostDeath$/i, '')
 }
 
-// Overwolf map codenames → display names (fallback if backend sends raw codes)
+// Overwolf map codenames → display names
 const MAP_NAMES = {
   Infinity: 'Abyss',
   Triad: 'Haven',
@@ -87,8 +106,8 @@ function CustomChartTooltip({ active, payload }) {
       </div>
       <div className="tooltip-body">
         <div className="tooltip-row">
-          <span className="tooltip-label">Your Win Odds:</span>
-          <span className="tooltip-val" style={{ color: isWon ? '#00e5cc' : '#ff4655' }}>
+          <span className="tooltip-label">Allies Odds:</span>
+          <span className="tooltip-val" style={{ color: isWon ? 'var(--enemy)' : 'var(--ally)' }}>
             {data.prob}%
           </span>
         </div>
@@ -99,7 +118,7 @@ function CustomChartTooltip({ active, payload }) {
           </span>
         </div>
         <div className="tooltip-row">
-          <span className="tooltip-label">Round K/D:</span>
+          <span className="tooltip-label">Local K/D:</span>
           <span className="tooltip-val">{data.kills}K / {data.deaths}D</span>
         </div>
         {isClutch && (
@@ -117,16 +136,15 @@ function CustomChartTooltip({ active, payload }) {
   )
 }
 
-// String formatting helpers
 function fmtSwing(s) {
   const n = Number(s)
   if (isNaN(n)) return '—'
   return `${n >= 0 ? '+' : ''}${n}%`
 }
 
-// Zero-dependency SVG sparkline of a round's live win-probability curve
-function Sparkline({ series, won, width = 100, height = 40, stretch = true, markers = false, labels = false }) {
-  const color = won ? '#00e5cc' : '#ff4655'
+// High-performance SVG sparkline
+function Sparkline({ series, won, width = 100, height = 36, stretch = true, markers = false, labels = false }) {
+  const color = won ? 'var(--enemy)' : 'var(--ally)'
   const denom = Math.max(1, series.length - 1)
   const pts = series.map((v, i) => {
     const c = Math.min(100, Math.max(0, v))
@@ -143,14 +161,14 @@ function Sparkline({ series, won, width = 100, height = 40, stretch = true, mark
   return (
     <svg className="pmr-spark-svg" {...svgProps}>
       {!stretch && (
-        <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
+        <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" strokeWidth="1" />
       )}
-      <polygon points={area} fill={color} opacity="0.12" />
+      <polygon points={area} fill={color} opacity="0.1" />
       <polyline
         points={line}
         fill="none"
         stroke={color}
-        strokeWidth={stretch ? 1.6 : 1.8}
+        strokeWidth={stretch ? 1.8 : 2}
         vectorEffect={stretch ? undefined : 'non-scaling-stroke'}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -161,15 +179,14 @@ function Sparkline({ series, won, width = 100, height = 40, stretch = true, mark
       })}
       {labels &&
         series.map((v, i) => (
-          <text key={`t${i}`} x={pts[i].x} y={Math.max(10, pts[i].y - 7)} fontSize="9" fill="#94a3b8" textAnchor="middle">
-            {Math.round(v)}
+          <text key={`t${i}`} x={pts[i].x} y={Math.max(10, pts[i].y - 6)} fontSize="9" fill="var(--text-3)" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="700">
+            {Math.round(v)}%
           </text>
         ))}
     </svg>
   )
 }
 
-// ── Download / export helpers ────────────────────────────────────────────────
 function sanitizeFilename(s) {
   return String(s || '')
     .toLowerCase()
@@ -225,6 +242,8 @@ function buildRoundCsv(rounds) {
 
 export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport }) {
   const [activeRound, setActiveRound] = useState(null)
+  const [tableFilter, setTableFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [busy, setBusy] = useState('')
   const containerRef = useRef(null)
   const modalRef = useRef(null)
@@ -260,7 +279,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
   const wonCount = rounds.filter(r => r.won).length
   const lostCount = totalRounds - wonCount
 
-  // Player performance stats: clutch/choke counts + favored/underdog win rates
+  // Player stats
   const playerStats = useMemo(() => {
     if (!rounds.length) return { clutchCount: 0, chokeCount: 0, favoredWins: 0, favoredTotal: 0, underdogWins: 0, underdogTotal: 0 }
     let clutchCount = 0, chokeCount = 0
@@ -282,13 +301,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     return { clutchCount, chokeCount, favoredWins, favoredTotal, favoredPct, underdogWins, underdogTotal, underdogPct }
   }, [rounds])
 
-  // Chart data formatting for Recharts
+  // Chart data
   const chartData = useMemo(() => {
     return rounds.map(r => {
-      // Safely resolve kills/deaths to a number to prevent React crash if backend sends raw arrays
       let k = r.player_kills ?? r.kills_by_local ?? r.kills
       let d = r.player_deaths ?? r.deaths_by_local ?? r.deaths
-      
       k = Array.isArray(k) ? k.length : (Number(k) || 0)
       d = Array.isArray(d) ? d.length : (Number(d) || 0)
 
@@ -306,7 +323,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     })
   }, [rounds])
 
-  // Live probability curve series per round (Model B combat evolution)
+  // Timeline data
   const timelineData = useMemo(() => {
     if (!rounds.length) return []
     return rounds.map(r => {
@@ -336,7 +353,25 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     })
   }, [rounds])
 
-  // ── Download handlers ──────────────────────────────────────────────────────
+  // Filtered rounds for table
+  const filteredRounds = useMemo(() => {
+    return rounds.filter(r => {
+      if (tableFilter === 'won' && !r.won) return false
+      if (tableFilter === 'lost' && r.won) return false
+      if (tableFilter === 'clutch' && r.performance !== 'clutch') return false
+      if (tableFilter === 'choke' && r.performance !== 'choke') return false
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchBuy = String(r.buy_type || '').toLowerCase().includes(q)
+        const matchSide = String(r.side || '').toLowerCase().includes(q)
+        const matchRound = `r${r.round_number || r.round}`.includes(q)
+        return matchBuy || matchSide || matchRound
+      }
+      return true
+    })
+  }, [rounds, tableFilter, searchQuery])
+
   const baseName = `valo_report_${sanitizeFilename(map) || 'valorant'}_${sanitizeFilename(outcome) || 'match'}${
     date ? `_${String(date).replace(/-/g, '')}` : ''
   }`
@@ -345,15 +380,15 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
     if (busy || !node) return
     setBusy(filename)
     try {
-      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#0f1923', cacheBust: true })
+      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#080b11', cacheBust: true })
       const blob = await (await fetch(dataUrl)).blob()
       downloadBlob(blob, filename)
     } catch {
       try {
-        const dataUrl = await toPng(node, { pixelRatio: 1, backgroundColor: '#0f1923', cacheBust: true })
+        const dataUrl = await toPng(node, { pixelRatio: 1, backgroundColor: '#080b11', cacheBust: true })
         window.open(dataUrl, '_blank')
       } catch {
-        /* give up silently */
+        /* fallback */
       }
     } finally {
       setBusy('')
@@ -367,35 +402,52 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
 
   if (!report) return null
 
-  // Economy types list with accent colors matching BuyAdvisor palette
   const econTypes = [
-    { key: 'pistol',   label: 'PISTOL',    color: '#94a3b8', icon: '🔫' },
-    { key: 'eco',      label: 'ECO',       color: '#22c55e', icon: '💰' },
-    { key: 'force',    label: 'FORCE BUY', color: '#e8c468', icon: '⚔️' },
-    { key: 'half_buy', label: 'HALF BUY',  color: '#fb923c', icon: '🥋' },
-    { key: 'full_buy', label: 'FULL BUY',  color: '#4fc3f7', icon: '🛡️' },
-    { key: 'bonus',    label: 'BONUS',     color: '#a78bfa', icon: '💸' },
-    { key: 'anti_eco', label: 'ANTI-ECO',  color: '#fb923c', icon: '⚡' },
-    { key: 'broken',   label: 'BROKEN',    color: '#e879f9', icon: '🧩' },
+    { key: 'pistol',   label: 'PISTOL',    color: '#94a3b8' },
+    { key: 'eco',      label: 'ECO',       color: 'var(--success)' },
+    { key: 'force',    label: 'FORCE BUY', color: 'var(--gold)' },
+    { key: 'half_buy', label: 'HALF BUY',  color: 'var(--warning)' },
+    { key: 'full_buy', label: 'FULL BUY',  color: 'var(--enemy)' },
+    { key: 'bonus',    label: 'BONUS',     color: 'var(--purple)' },
+    { key: 'anti_eco', label: 'ANTI-ECO',  color: 'var(--warning)' },
+    { key: 'broken',   label: 'BROKEN',    color: '#e879f9' },
   ]
 
   return (
     <div className="pmr-container" ref={containerRef}>
-      {/* 1. Header Card */}
+      {/* 1. Header Hero Card with BorderBeam */}
       <div className={`pmr-card pmr-header-card ${isVictory ? 'theme-victory' : 'theme-defeat'}`}>
-        <div className="header-glow" />
+        <BorderBeam 
+          size={180} 
+          duration={8} 
+          colorFrom={isVictory ? 'var(--enemy)' : 'var(--ally)'} 
+          colorTo="var(--gold)" 
+        />
+
         <div className="header-left">
           <div className="result-badge-row">
             <span className={`result-pill ${isVictory ? 'pill-victory' : 'pill-defeat'}`}>
-              {isVictory ? 'VICTORY' : 'DEFEAT'}
+              <ShinyText 
+                text={isVictory ? 'VICTORY' : 'DEFEAT'} 
+                color={isVictory ? 'var(--enemy)' : 'var(--ally)'} 
+                shineColor="#ffffff" 
+              />
             </span>
             <span className="mode-pill">COMPETITIVE</span>
           </div>
-          <div className="map-title">{(displayMap && displayMap.trim()) ? displayMap.toUpperCase() : 'VALORANT'}</div>
+          <h1 className="map-title">{(displayMap && displayMap.trim()) ? displayMap.toUpperCase() : 'VALORANT'}</h1>
           {(local_agent || date) && (
             <div className="header-sub-row">
-              {displayAgent && <span className="header-sub-chip header-sub-agent">🎮 {displayAgent}</span>}
-              {date && <span className="header-sub-chip">📅 {date}</span>}
+              {displayAgent && (
+                <span className="header-sub-chip header-sub-agent">
+                  <User size={11} /> {displayAgent}
+                </span>
+              )}
+              {date && (
+                <span className="header-sub-chip">
+                  <Calendar size={11} /> {date}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -417,19 +469,19 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
           </div>
           <div className="meta-divider" />
           <div className="meta-stat">
-            <span className="meta-val text-ally">{wonCount}W</span>
+            <span className="meta-val text-enemy">{wonCount}W</span>
             <span className="meta-lbl">WON</span>
           </div>
           <div className="meta-divider" />
           <div className="meta-stat">
-            <span className="meta-val text-enemy">{lostCount}L</span>
+            <span className="meta-val text-ally">{lostCount}L</span>
             <span className="meta-lbl">LOST</span>
           </div>
           {model_accuracy != null && (
             <>
               <div className="meta-divider" />
               <div className="meta-stat">
-                <span className="meta-val text-ally">{Math.round(model_accuracy * 100)}%</span>
+                <span className="meta-val text-gold">{Math.round(model_accuracy * 100)}%</span>
                 <span className="meta-lbl">MODEL A ACC</span>
               </div>
             </>
@@ -443,16 +495,6 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               </div>
             </>
           )}
-          {biggest_upset && (
-            <>
-              <div className="meta-divider" />
-              <div className="meta-stat"
-                title={`Biggest upset: won R${biggest_upset.round} with only ${biggest_upset.pre_prob}% odds (+${biggest_upset.swing}% swing)`}>
-                <span className="meta-val text-gold">R{biggest_upset.round}</span>
-                <span className="meta-lbl">BIGGEST UPSET</span>
-              </div>
-            </>
-          )}
         </div>
 
         <div className="pmr-header-actions">
@@ -462,9 +504,9 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               className="pmr-header-action-btn pmr-dl-btn"
               onClick={() => exportPng(containerRef.current, `${baseName}.png`)}
               disabled={!!busy}
-              title="Download this report as a PNG image"
+              title="Download full post-match report as PNG image"
             >
-              {busy ? '…' : '⭳ PNG'}
+              <Download size={12} /> {busy ? 'Exporting…' : 'PNG Export'}
             </button>
           )}
           {rounds.length > 0 && (
@@ -473,18 +515,19 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               className="pmr-header-action-btn pmr-dl-csv-btn"
               onClick={exportCsv}
               disabled={!!busy}
-              title="Download round-by-round breakdown as CSV"
+              title="Download round data breakdown as CSV"
             >
-              ⭳ CSV
+              <FileSpreadsheet size={12} /> CSV
             </button>
           )}
           {(reportUrl || reportFile) && onOpenReport && (
             <button
-              className="pmr-header-action-btn"
+              type="button"
+              className="pmr-header-action-btn pmr-open-full-btn"
               onClick={() => onOpenReport(reportUrl, reportFile)}
-              title="Open standalone interactive dashboard in browser"
+              title="Open full interactive HTML dashboard in browser"
             >
-              📊 FULL REPORT ↗
+              <ExternalLink size={12} /> Full Dashboard
             </button>
           )}
         </div>
@@ -494,8 +537,8 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
       <div className="pmr-card pmr-chart-card">
         <div className="card-header">
           <div className="card-title-group">
-            <span className="card-icon">📊</span>
-            <h3 className="card-title">WIN PROBABILITY BY ROUND</h3>
+            <TrendingUp size={16} className="text-enemy" />
+            <h2 className="card-title">WIN PROBABILITY BY ROUND</h2>
           </div>
           <div className="chart-legend">
             <span className="legend-item">
@@ -511,7 +554,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               <span className="legend-marker marker-choke">⚠️</span> Choke
             </span>
             <span className="legend-item">
-              <span className="legend-line" /> 50% Odds
+              <span className="legend-line" /> 50% Baseline
             </span>
           </div>
         </div>
@@ -524,37 +567,37 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
             >
               <XAxis
                 dataKey="name"
-                stroke="#64748b"
-                tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
-                axisLine={{ stroke: '#334155' }}
+                stroke="var(--text-4)"
+                tick={{ fill: 'var(--text-3)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-display)' }}
+                axisLine={{ stroke: 'var(--border)' }}
                 tickLine={false}
               />
               <YAxis
                 domain={[0, 100]}
                 ticks={[0, 25, 50, 75, 100]}
-                stroke="#64748b"
-                tick={{ fill: '#64748b', fontSize: 10 }}
-                axisLine={{ stroke: '#334155' }}
+                stroke="var(--text-4)"
+                tick={{ fill: 'var(--text-4)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+                axisLine={{ stroke: 'var(--border)' }}
                 tickLine={false}
                 unit="%"
               />
               <ReferenceLine
                 y={50}
-                stroke="#64748b"
+                stroke="var(--text-4)"
                 strokeDasharray="4 4"
-                strokeWidth={1.5}
+                strokeWidth={1}
               />
-              <Tooltip content={<CustomChartTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }} />
-              <Bar dataKey="prob" radius={[3, 3, 0, 0]}>
+              <Tooltip content={<CustomChartTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }} />
+              <Bar dataKey="prob" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => {
-                  const fillColor = entry.won ? '#00e5cc' : '#ff4655'
+                  const fillColor = entry.won ? 'var(--enemy)' : 'var(--ally)'
                   return <Cell key={`cell-${index}`} fill={fillColor} />
                 })}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Clutch / Choke floating markers above bars */}
+          {/* Clutch / Choke floating markers */}
           <div className="chart-markers-row">
             {chartData.map((d, i) => (
               <div key={i} className="chart-marker-cell">
@@ -564,7 +607,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                   </span>
                 )}
                 {d.performance === 'choke' && (
-                  <span className="chart-perf-choke" title={`R${d.roundNum}: Choked (had ${d.prob}% odds)`}>
+                  <span className="chart-perf-choke" title={`R${d.roundNum}: Choked round (${d.prob}% odds)`}>
                     ⚠️
                   </span>
                 )}
@@ -578,14 +621,10 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
       <div className="pmr-card pmr-timeline-card">
         <div className="card-header">
           <div className="card-title-group">
-            <span className="card-icon">📈</span>
-            <h3 className="card-title">LIVE PROBABILITY TIMELINE</h3>
+            <Activity size={16} className="text-gold" />
+            <h2 className="card-title">LIVE COMBAT PROGRESSION TIMELINE</h2>
           </div>
-          <span className="card-subtitle">Model B combat evolution per round</span>
-        </div>
-
-        <div className="timeline-hint">
-          <span>▶ Click any round card to open the kill-by-kill combat progression</span>
+          <span className="card-subtitle">Model B Combat Evolution • Click round to expand</span>
         </div>
 
         <div className="pmr-timeline-grid">
@@ -595,15 +634,15 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               type="button"
               className={`pmr-spark-card ${t.won ? 'spark-won' : 'spark-lost'}`}
               onClick={() => setActiveRound(t)}
-              title={`R${t.round}: click to inspect combat progression`}
+              title={`R${t.round}: Click to inspect kill-by-kill combat progression`}
             >
               <div className="spark-top">
                 <span className="spark-rnd">R{t.round}</span>
                 <span className={`spark-res ${t.won ? 'spark-w' : 'spark-l'}`}>{t.won ? 'W' : 'L'}</span>
               </div>
-              <Sparkline series={t.series} won={t.won} height={34} />
+              <Sparkline series={t.series} won={t.won} height={32} />
               <div className="spark-bottom">
-                <span className="spark-kills">{t.kills.length} K</span>
+                <span className="spark-kills">{t.kills.length} Kills</span>
                 <span className={`spark-swing ${t.won ? 'swing-up' : 'swing-down'}`}>{fmtSwing(t.swing)}</span>
               </div>
             </button>
@@ -611,14 +650,14 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         </div>
       </div>
 
-      {/* 4. Two Columns: Match-Swinging Rounds & Economy Efficiency 2x2 */}
+      {/* 4. Match-Swinging Rounds & Economy Matrix */}
       <div className="pmr-two-col-grid">
-        {/* Left Column: Match-Swinging Rounds */}
+        {/* Left: Match-Swinging Rounds */}
         <div className="pmr-card pmr-swing-card">
           <div className="card-header">
             <div className="card-title-group">
-              <span className="card-icon">⚡</span>
-              <h3 className="card-title">MATCH-SWINGING ROUNDS</h3>
+              <Zap size={16} className="text-gold" />
+              <h2 className="card-title">MATCH-SWINGING ROUNDS</h2>
             </div>
             <span className="card-subtitle">Highest Win Probability Swings</span>
           </div>
@@ -628,11 +667,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               pivotal_rounds.map((p, idx) => {
                 const isWon = p.won
                 return (
-                  <div
+                  <SpotlightCard
                     key={idx}
                     className={`pivotal-item ${isWon ? 'piv-item-won' : 'piv-item-lost'}`}
+                    spotlightColor={isWon ? 'rgba(0, 229, 204, 0.12)' : 'rgba(255, 70, 85, 0.12)'}
                   >
-                    <div className="piv-item-glow" />
                     <div className="piv-top">
                       <div className="piv-round-tag">
                         <span className="piv-r-num">ROUND {p.round}</span>
@@ -653,7 +692,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                       <span className="piv-stat-lbl">Pre-Round Probability:</span>
                       <span className="piv-stat-val">{p.pre_prob}%</span>
                     </div>
-                  </div>
+                  </SpotlightCard>
                 )
               })
             ) : (
@@ -662,45 +701,42 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
           </div>
         </div>
 
-        {/* Right Column: Economy Efficiency 2x2 Grid */}
+        {/* Right: Economy Efficiency 4x2 Matrix */}
         <div className="pmr-card pmr-econ-card">
           <div className="card-header">
             <div className="card-title-group">
-              <span className="card-icon">💰</span>
-              <h3 className="card-title">ECONOMY EFFICIENCY</h3>
+              <Shield size={16} className="text-enemy" />
+              <h2 className="card-title">ECONOMY EFFICIENCY MATRIX</h2>
             </div>
             <span className="card-subtitle">Win Rate by Buy Category</span>
           </div>
 
           <div className="econ-2x2-grid">
-            {econTypes.map(({ key, label, color, icon }) => {
+            {econTypes.map(({ key, label, color }) => {
               const stat = economy[key] || { played: 0, won: 0 }
               const played = stat.played || 0
               const won = stat.won || 0
               const lost = Math.max(0, played - won)
               const winRate = played > 0 ? Math.round((won / played) * 100) : 0
-              const isHigh = winRate >= 50
 
               return (
-                <div
+                <SpotlightCard
                   key={key}
                   className={`econ-tile ${played === 0 ? 'econ-tile-empty' : ''}`}
-                  style={{ '--tile-accent': color, '--tile-accent-dim': `${color}22`, '--tile-accent-glow': `${color}33` }}
+                  spotlightColor={`${color}22`}
+                  style={{ '--tile-accent': color }}
                 >
                   <div className="econ-tile-header">
-                    <span className="econ-type-label">
-                      <span className="econ-tile-icon">{icon}</span>
-                      {label}
-                    </span>
+                    <span className="econ-type-label" style={{ color }}>{label}</span>
                     {played > 0 && (
-                      <span className="econ-wr-badge" style={{ background: `${color}22`, color, borderColor: `${color}44` }}>
+                      <span className="econ-wr-badge" style={{ background: `${color}18`, color, borderColor: `${color}33` }}>
                         {winRate}% WR
                       </span>
                     )}
                   </div>
 
                   <div className="econ-tile-number">
-                    <span className="big-wr" style={{ color: played > 0 ? color : '#64748b' }}>
+                    <span className="big-wr" style={{ color: played > 0 ? color : 'var(--text-4)' }}>
                       {played > 0 ? `${winRate}%` : '—'}
                     </span>
                   </div>
@@ -710,20 +746,19 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                       className="econ-bar-fill"
                       style={{
                         width: `${played > 0 ? winRate : 0}%`,
-                        background: `linear-gradient(90deg, ${color}66, ${color})`,
-                        boxShadow: `0 0 6px ${color}44`,
+                        background: color,
                       }}
                     />
                   </div>
 
                   <div className="econ-tile-record">
                     {played > 0 ? (
-                      <span><strong style={{ color }}>{won}W</strong> - <strong>{lost}L</strong> <span className="econ-tile-played">({played} played)</span></span>
+                      <span><strong>{won}W</strong> - <strong>{lost}L</strong> <span className="text-muted">({played} played)</span></span>
                     ) : (
                       <span className="text-muted">0 rounds played</span>
                     )}
                   </div>
-                </div>
+                </SpotlightCard>
               )
             })}
           </div>
@@ -736,11 +771,11 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         const enemies = team_comp.enemies || []
         if (!allies.length && !enemies.length) return null
         return (
-          <div className="pmr-card">
+          <div className="pmr-card pmr-comp-card">
             <div className="card-header">
               <div className="card-title-group">
-                <span className="card-icon">🏅</span>
-                <h3 className="card-title">TEAM & RANKS</h3>
+                <Trophy size={16} className="text-gold" />
+                <h2 className="card-title">TEAM COMPOSITION & RANKS</h2>
               </div>
             </div>
             <div className="pmr-comp-grid">
@@ -750,7 +785,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                   <div className="pmr-comp-row" key={`a${i}`}>
                     <span className="pmr-comp-agent">{p.agent}</span>
                     <span className="pmr-comp-name">{p.name}</span>
-                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} />{p.rank}</span>
+                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} size={18} />{p.rank}</span>
                   </div>
                 ))}
               </div>
@@ -760,7 +795,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                   <div className="pmr-comp-row" key={`e${i}`}>
                     <span className="pmr-comp-agent">{p.agent}</span>
                     <span className="pmr-comp-name">{p.name}</span>
-                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} />{p.rank}</span>
+                    <span className="pmr-comp-rank"><RankBadge rank={p.rank} size={18} />{p.rank}</span>
                   </div>
                 ))}
               </div>
@@ -769,14 +804,75 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
         )
       })()}
 
-      {/* 6. Round Breakdown Table */}
+      {/* 6. Round Breakdown Table with Filters & Search */}
       <div className="pmr-card pmr-table-card">
-        <div className="card-header">
+        <div className="card-header table-header-flex">
           <div className="card-title-group">
-            <span className="card-icon">📋</span>
-            <h3 className="card-title">ROUND-BY-ROUND BREAKDOWN</h3>
+            <Flame size={16} className="text-gold" />
+            <h2 className="card-title">ROUND-BY-ROUND BREAKDOWN</h2>
           </div>
-          <span className="card-subtitle">{totalRounds} total rounds</span>
+
+          <div className="table-controls">
+            {/* Filter Tabs */}
+            <div className="table-tabs">
+              <button
+                type="button"
+                className={`table-tab ${tableFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setTableFilter('all')}
+              >
+                ALL ({rounds.length})
+              </button>
+              <button
+                type="button"
+                className={`table-tab ${tableFilter === 'won' ? 'active' : ''}`}
+                onClick={() => setTableFilter('won')}
+              >
+                WON ({wonCount})
+              </button>
+              <button
+                type="button"
+                className={`table-tab ${tableFilter === 'lost' ? 'active' : ''}`}
+                onClick={() => setTableFilter('lost')}
+              >
+                LOST ({lostCount})
+              </button>
+              {playerStats.clutchCount > 0 && (
+                <button
+                  type="button"
+                  className={`table-tab ${tableFilter === 'clutch' ? 'active' : ''}`}
+                  onClick={() => setTableFilter('clutch')}
+                >
+                  CLUTCHES ({playerStats.clutchCount})
+                </button>
+              )}
+              {playerStats.chokeCount > 0 && (
+                <button
+                  type="button"
+                  className={`table-tab ${tableFilter === 'choke' ? 'active' : ''}`}
+                  onClick={() => setTableFilter('choke')}
+                >
+                  CHOKES ({playerStats.chokeCount})
+                </button>
+              )}
+            </div>
+
+            {/* Search Box */}
+            <div className="table-search">
+              <Search size={12} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search round or buy…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+              {searchQuery && (
+                <button type="button" className="search-clear" onClick={() => setSearchQuery('')}>
+                  <X size={10} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="table-responsive-wrap">
@@ -787,15 +883,15 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 <th className="th-side">SIDE</th>
                 <th className="th-buy">BUY TYPE</th>
                 <th className="th-eval">BUY ADV</th>
-                <th className="th-prob">PRE-ROUND WIN %</th>
-                <th className="th-kd">K / D</th>
+                <th className="th-prob">PRE-ROUND ODDS</th>
+                <th className="th-kd">LOCAL K/D</th>
                 <th className="th-dmg">DMG</th>
                 <th className="th-res">RESULT</th>
                 <th className="th-swing">SWING</th>
               </tr>
             </thead>
             <tbody>
-              {rounds.map((r, i) => {
+              {filteredRounds.map((r, i) => {
                 const isWon = r.won
                 const isClutch = r.performance === 'clutch'
                 const isChoke = r.performance === 'choke'
@@ -819,9 +915,14 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                     className={`table-row ${isWon ? 'row-won' : 'row-lost'} ${
                       isClutch ? 'row-clutch' : isChoke ? 'row-choke' : ''
                     }`}
+                    onClick={() => {
+                      const t = timelineData.find(item => item.round === (r.round_number || r.round))
+                      if (t) setActiveRound(t)
+                    }}
+                    title="Click to view kill-by-kill progression"
                   >
                     <td className="td-rnd">
-                      <span className="rnd-badge">R{r.round}</span>
+                      <span className="rnd-badge">R{r.round_number || r.round}</span>
                     </td>
                     <td className="td-side">
                       <span className={`side-badge ${isAtk ? 'side-atk' : 'side-def'}`}>
@@ -829,7 +930,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                       </span>
                     </td>
                     <td className="td-buy">
-                      <span className={`buy-badge buy-${r.buy_type || 'full'}`}>
+                      <span className="buy-badge">
                         {buyLabel}
                       </span>
                     </td>
@@ -842,7 +943,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                       <div className="prob-cell">
                         <div className="prob-meter-track">
                           <div
-                            className={`prob-meter-fill ${isWon ? 'fill-ally' : 'fill-enemy'}`}
+                            className={`prob-meter-fill ${isWon ? 'fill-enemy' : 'fill-ally'}`}
                             style={{ width: `${Math.min(100, Math.max(0, r.pre_prob))}%` }}
                           />
                         </div>
@@ -851,7 +952,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                     </td>
                     <td className="td-kd">
                       <span className="kd-text">
-                        <strong className="text-white">{k}</strong> / <span className="text-muted">{d}</span>
+                        <strong>{k}</strong> / <span className="text-muted">{d}</span>
                       </span>
                     </td>
                     <td className="td-dmg">
@@ -865,19 +966,19 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                           {isWon ? 'WIN' : 'LOSS'}
                         </span>
                         {isClutch && (
-                          <span className="perf-tag tag-clutch" title="Won against the odds">
+                          <span className="perf-tag tag-clutch">
                             🔥 CLUTCH
                           </span>
                         )}
                         {isChoke && (
-                          <span className="perf-tag tag-choke" title="Lost a favored round">
+                          <span className="perf-tag tag-choke">
                             ⚠️ CHOKE
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="td-swing">
-                      <span className={`swing-val ${!isNaN(swingVal) && swingVal >= 0 ? 'text-ally' : 'text-enemy'}`}>
+                      <span className={`swing-val ${!isNaN(swingVal) && swingVal >= 0 ? 'text-enemy' : 'text-ally'}`}>
                         {fmtSwing(r.prob_swing)}
                       </span>
                     </td>
@@ -895,7 +996,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
           <div className="pmr-modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
             <div className="pmr-modal-header">
               <div className="pmr-modal-title">
-                <span className="pmr-modal-rnd">ROUND {activeRound.round}</span>
+                <span className="pmr-modal-rnd">ROUND {activeRound.round} DRILLDOWN</span>
                 <span className={`res-badge ${activeRound.won ? 'badge-w' : 'badge-l'}`}>
                   {activeRound.won ? 'WIN' : 'LOSS'}
                 </span>
@@ -909,10 +1010,10 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 disabled={!!busy}
                 title="Download this round's combat chart as PNG"
               >
-                {busy ? '…' : '⭳ PNG'}
+                <Download size={11} /> {busy ? '…' : 'PNG'}
               </button>
-              <button type="button" className="pmr-modal-close" onClick={() => setActiveRound(null)} aria-label="Close">
-                ✕
+              <button type="button" className="pmr-modal-close" onClick={() => setActiveRound(null)} aria-label="Close modal">
+                <X size={14} />
               </button>
             </div>
 
@@ -923,18 +1024,18 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               <span className="buy-badge">{String(activeRound.buyType).replace('_', ' ').toUpperCase()}</span>
               <span className="pmr-modal-stat">PRE {activeRound.preProb}%</span>
               <span className="pmr-modal-stat">FINAL {!isNaN(activeRound.finalProb) ? Math.round(activeRound.finalProb) : '—'}%</span>
-              <span className={`pmr-modal-stat ${activeRound.won ? 'text-ally' : 'text-enemy'}`}>
+              <span className={`pmr-modal-stat ${activeRound.won ? 'text-enemy' : 'text-ally'}`}>
                 SWING {fmtSwing(activeRound.swing)}
               </span>
             </div>
 
             <div className="pmr-modal-chart">
-              <Sparkline series={activeRound.series} won={activeRound.won} width={460} height={140} stretch={false} markers labels />
+              <Sparkline series={activeRound.series} won={activeRound.won} width={460} height={130} stretch={false} markers labels />
             </div>
 
             <div className="pmr-kill-list">
               {activeRound.kills.length === 0 && (
-                <div className="no-data-msg">No kills captured this round.</div>
+                <div className="no-data-msg">No combat kill events recorded for this round.</div>
               )}
               {activeRound.kills.map((k, i) => {
                 const prev = i === 0 ? activeRound.preProb : Number(activeRound.kills[i - 1].live_prob)
@@ -943,15 +1044,15 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                 const allyKill = !!k.is_attacker_teammate
                 return (
                   <div key={i} className={`pmr-kill-row ${allyKill ? 'kill-ally' : 'kill-enemy'}`}>
-                    <span className="kill-idx">K{i + 1}</span>
+                    <span className="kill-idx">#{i + 1}</span>
                     <span className="kill-event">
                       <span className="kill-icon">{allyKill ? '🗡️' : '💀'}</span>
-                      {k.attacker} <span className="kill-arrow">→</span> {k.victim}
-                      {k.headshot && <span className="kill-hs"> 💥 HS</span>}
+                      <strong>{k.attacker}</strong> <span className="kill-arrow">→</span> {k.victim}
+                      {k.headshot && <span className="kill-hs"> (HS)</span>}
                     </span>
                     <span className="kill-alive">{k.att_alive}v{k.def_alive}</span>
                     <span className="kill-prob">
-                      {live}% <span className={`kill-delta ${delta >= 0 ? 'text-ally' : 'text-enemy'}`}>{delta >= 0 ? '+' : ''}{delta}%</span>
+                      {live}% <span className={`kill-delta ${delta >= 0 ? 'text-enemy' : 'text-ally'}`}>{delta >= 0 ? '+' : ''}{delta}%</span>
                     </span>
                   </div>
                 )

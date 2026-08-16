@@ -1,0 +1,38 @@
+.border-beam {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: var(--border-width, 1.5px) solid transparent;
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.border-beam::after {
+  content: '';
+  position: absolute;
+  aspect-ratio: 1;
+  width: var(--size, 150px);
+  background: linear-gradient(to left, var(--color-from, #ff4655), var(--color-to, #00e5cc), transparent);
+  offset-anchor: calc(var(--size, 150px) / 2) 50%;
+  offset-path: rect(0 auto auto 0 round var(--radius, 8px));
+  animation: borderBeamMotion var(--duration, 6s) infinite linear;
+  animation-delay: var(--delay, 0s);
+  opacity: 0.9;
+}
+
+@keyframes borderBeamMotion {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .border-beam {
+    display: none !important;
+  }
+}

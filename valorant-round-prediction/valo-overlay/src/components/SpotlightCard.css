@@ -1,0 +1,41 @@
+.spotlight-card {
+  position: relative;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
+}
+
+.spotlight-card:hover {
+  border-color: var(--border-strong);
+}
+
+.spotlight-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  background: radial-gradient(
+    400px circle at var(--mouse-x, -100px) var(--mouse-y, -100px),
+    var(--spotlight-color, rgba(0, 229, 204, 0.12)),
+    transparent 70%
+  );
+  z-index: 1;
+}
+
+.spotlight-card:hover .spotlight-overlay {
+  opacity: 1;
+}
+
+.spotlight-content {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-overlay {
+    display: none !important;
+  }
+}

@@ -1,24 +1,93 @@
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:         #0a0b0d;
-  --surface:    #111318;
-  --surface2:   #181c22;
-  --border:     rgba(255,255,255,0.07);
-  --ally:       #ff4655;
-  --ally-dim:   rgba(255,70,85,0.15);
-  --enemy:      #4fc3f7;
-  --enemy-dim:  rgba(79,195,247,0.15);
-  --neutral:    #6b7280;
-  --gold:       #e8c468;
-  --text-1:     #f1f2f4;
-  --text-2:     #8b9099;
-  --text-3:     #4b5260;
-  --font-display: 'Rajdhani', sans-serif;
-  --font-body:    'Inter', sans-serif;
-  --radius:     4px;
+  /* Core Palette - High Contrast, Tactical Esports Dark */
+  --bg:            #080b11;
+  --bg-elevated:   #0d131d;
+  --surface:       #121926;
+  --surface2:      #182234;
+  --surface3:      #202c42;
+  --border:        rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  --border-subtle: rgba(255,255,255,0.05);
+
+  /* Team Colors - Valorant Red & Precision Cyan */
+  --ally:          #ff4655;     /* Valorant signature red */
+  --ally-dim:      rgba(255,70,85,0.15);
+  --ally-glow:     rgba(255,70,85,0.40);
+  --ally-strong:   rgba(255,70,85,0.25);
+
+  --enemy:         #00e5cc;     /* Precision tactical cyan */
+  --enemy-dim:     rgba(0,229,204,0.15);
+  --enemy-glow:    rgba(0,229,204,0.40);
+  --enemy-strong:  rgba(0,229,204,0.25);
+
+  /* Accent Colors */
+  --gold:          #f59e0b;     /* Radiant gold */
+  --gold-dim:      rgba(245,158,11,0.15);
+  --gold-glow:     rgba(245,158,11,0.40);
+  --gold-strong:   rgba(245,158,11,0.25);
+
+  --success:       #10b981;
+  --success-dim:   rgba(16,185,129,0.15);
+  --success-glow:  rgba(16,185,129,0.40);
+
+  --warning:       #f97316;
+  --warning-dim:   rgba(249,115,22,0.15);
+  --warning-glow:  rgba(249,115,22,0.40);
+
+  --purple:        #a855f7;
+  --purple-dim:    rgba(168,85,247,0.15);
+  --purple-glow:   rgba(168,85,247,0.40);
+
+  /* Text Scale */
+  --text-1:        #f8fafc;
+  --text-2:        #cbd5e1;
+  --text-3:        #94a3b8;
+  --text-4:        #64748b;
+  --text-inverse:  #080b11;
+
+  /* Typography */
+  --font-display:  'Rajdhani', -apple-system, sans-serif;
+  --font-body:     'Inter', -apple-system, sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+
+  /* Geometry & Radius */
+  --radius:        8px;
+  --radius-sm:     4px;
+  --radius-lg:     12px;
+  --radius-xl:     16px;
+
+  /* Shadows (Zero GPU blur filter inside elements) */
+  --shadow-sm:     0 2px 4px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 14px rgba(0,0,0,0.5);
+  --shadow-lg:     0 12px 36px rgba(0,0,0,0.65);
+  --shadow-xl:     0 20px 60px rgba(0,0,0,0.8);
+
+  /* Transitions (Hardware accelerated opacity & transform) */
+  --transition-fast:  120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-base:  220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow:  360ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Z-Index Scale */
+  --z-base:        1;
+  --z-dropdown:    100;
+  --z-sticky:      200;
+  --z-modal:       1000;
+  --z-toast:       1100;
+  --z-tooltip:     1200;
+}
+
+/* Reduced Motion - Strict Rule */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html, body, #root {
@@ -28,4 +97,38 @@ html, body, #root {
   overflow: hidden;
 }
 
-body { font-family: var(--font-body); }
+body { 
+  font-family: var(--font-body); 
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text-1);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+  background: var(--border-strong); 
+  border-radius: 3px; 
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Utility Classes */
+.text-ally    { color: var(--ally); }
+.text-enemy   { color: var(--enemy); }
+.text-gold    { color: var(--gold); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-purple  { color: var(--purple); }
+.text-muted   { color: var(--text-4); }
+
+.bg-ally      { background: var(--ally); }
+.bg-enemy     { background: var(--enemy); }
+.bg-gold      { background: var(--gold); }
+
+/* Focus Visible */
+*:focus-visible {
+  outline: 2px solid var(--enemy);
+  outline-offset: 2px;
+}

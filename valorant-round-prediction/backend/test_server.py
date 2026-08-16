@@ -42,68 +42,68 @@ async def listen():
                 data = json.loads(msg)
                 msg_type = data.get("type", "?")
 
-            if msg_type == "pre_round":
-                print(f"\n[Pre-Round] Round {data['round']} | {data['map']} | Side: {data['side']} | "
-                      f"Score: {data['score_won']}-{data['score_lost']}")
-                print(f"   Probability: {data['prob']}% allies win")
-                if "buy_recommendation" in data and data["buy_recommendation"]:
-                    br = data["buy_recommendation"]
-                    rec = br.get("recommendation", "").upper()
-                    urg = br.get("urgency", "").upper()
-                    print(f"   💰 Buy Rec: [{rec}] ({urg} urgency) — {br.get('reason', '')}")
-                    if br.get("scenarios"):
-                        sc = br["scenarios"]
-                        sc_str = " | ".join([f"{k}: {v['this_round']}% (EV: {v['two_round_ev']}%)" for k, v in sc.items()])
-                        print(f"      Scenarios: {sc_str}")
+                if msg_type == "pre_round":
+                    print(f"\n[Pre-Round] Round {data['round']} | {data['map']} | Side: {data['side']} | "
+                          f"Score: {data['score_won']}-{data['score_lost']}")
+                    print(f"   Probability: {data['prob']}% allies win")
+                    if "buy_recommendation" in data and data["buy_recommendation"]:
+                        br = data["buy_recommendation"]
+                        rec = br.get("recommendation", "").upper()
+                        urg = br.get("urgency", "").upper()
+                        print(f"   💰 Buy Rec: [{rec}] ({urg} urgency) — {br.get('reason', '')}")
+                        if br.get("scenarios"):
+                            sc = br["scenarios"]
+                            sc_str = " | ".join([f"{k}: {v['this_round']}% (EV: {v['two_round_ev']}%)" for k, v in sc.items()])
+                            print(f"      Scenarios: {sc_str}")
 
-            elif msg_type == "live_update":
-                hs = " (HS)" if data.get("headshot") else ""
-                spike = " [SPIKE]" if data.get("spike_planted") else ""
-                print(f"   Kill {data['kill_index']}: {data['attacker']} -> {data['victim']}{hs}{spike} | "
-                      f"{data['att_alive']}v{data['def_alive']} | "
-                      f"Live: {data['live_prob']}%")
+                elif msg_type == "live_update":
+                    hs = " (HS)" if data.get("headshot") else ""
+                    spike = " [SPIKE]" if data.get("spike_planted") else ""
+                    print(f"   Kill {data['kill_index']}: {data['attacker']} -> {data['victim']}{hs}{spike} | "
+                          f"{data['att_alive']}v{data['def_alive']} | "
+                          f"Live: {data['live_prob']}%")
 
-            elif msg_type == "spike_planted":
-                print(f"   [SPIKE PLANTED] Site {data.get('site', '?')}")
+                elif msg_type == "spike_planted":
+                    print(f"   [SPIKE PLANTED] Site {data.get('site', '?')}")
 
-            elif msg_type == "round_end":
-                print(f"\n[Round End] Score: {data['score_won']}-{data['score_lost']}")
+                elif msg_type == "round_end":
+                    print(f"\n[Round End] Score: {data['score_won']}-{data['score_lost']}")
 
-            elif msg_type == "match_end":
-                print(f"\n[Match End] {data.get('outcome', '?')}")
-                print(f"   Final score: {data['score_won']}-{data['score_lost']}")
-                if "report_file" in data:
-                    print(f"   📄 HTML Report saved: {data['report_file']}")
+                elif msg_type == "match_end":
+                    print(f"\n[Match End] {data.get('outcome', '?')}")
+                    print(f"   Final score: {data['score_won']}-{data['score_lost']}")
+                    if "report_file" in data:
+                        print(f"   📄 HTML Report saved: {data['report_file']}")
 
-            elif msg_type == "match_report":
-                print(f"\n{'='*60}")
-                print(f"  POST-MATCH REPORT")
-                print(f"{'='*60}")
-                print(f"  Map: {data.get('map', '?')} | Outcome: {data.get('outcome', '?')}")
-                print(f"  Final Score: {data['final_score'][0]}-{data['final_score'][1]}")
-                print(f"  Rounds played: {len(data['rounds'])}")
-                print()
-                print("  Round | Side    | Buy      | Pre%  | Won | Perf")
-                print("  " + "-"*56)
-                for r in data["rounds"]:
-                    side_str = r["side"][:3].upper()
-                    print(f"  R{r['round']:>2}   | {side_str:<7} | {r['buy_type']:<8} | "
-                          f"{r['pre_prob']:>5.1f} | {'✓' if r['won'] else '✗'}   | {r.get('performance', '')}")
-                print()
-                print("  PIVOTAL ROUNDS:")
-                for p in data["pivotal_rounds"]:
-                    icon = "🟢" if p["won"] else "🔴"
-                    print(f"    {icon} R{p['round']}: {p['reason']} (swing: {p['swing']}%)")
-                print()
-                print("  ECONOMY:")
-                for bt, stats in data["economy"].items():
-                    if stats["played"] > 0:
-                        wr = stats["won"] / stats["played"] * 100
-                        print(f"    {bt:<8}: {stats['won']}/{stats['played']} won ({wr:.0f}%)")
-                print(f"{'='*60}")
+                elif msg_type == "match_report":
+                    print(f"\n{'='*60}")
+                    print(f"  POST-MATCH REPORT")
+                    print(f"{'='*60}")
+                    print(f"  Map: {data.get('map', '?')} | Outcome: {data.get('outcome', '?')}")
+                    print(f"  Final Score: {data['final_score'][0]}-{data['final_score'][1]}")
+                    print(f"  Rounds played: {len(data['rounds'])}")
+                    print()
+                    print("  Round | Side    | Buy      | Pre%  | Won | Perf")
+                    print("  " + "-"*56)
+                    for r in data["rounds"]:
+                        side_str = r["side"][:3].upper()
+                        print(f"  R{r['round']:>2}   | {side_str:<7} | {r['buy_type']:<8} | "
+                              f"{r['pre_prob']:>5.1f} | {'✓' if r['won'] else '✗'}   | {r.get('performance', '')}")
+                    print()
+                    print("  PIVOTAL ROUNDS:")
+                    for p in data["pivotal_rounds"]:
+                        icon = "🟢" if p["won"] else "🔴"
+                        print(f"    {icon} R{p['round']}: {p['reason']} (swing: {p['swing']}%)")
+                    print()
+                    print("  ECONOMY:")
+                    for bt, stats in data["economy"].items():
+                        if stats["played"] > 0:
+                            wr = stats["won"] / stats["played"] * 100
+                            print(f"    {bt:<8}: {stats['won']}/{stats['played']} won ({wr:.0f}%)")
+                    print(f"{'='*60}")
 
-            elif msg_type == "connected":
-                print(f"[Server] {data['message']}")
+                elif msg_type == "connected":
+                    print(f"[Server] {data['message']}")
     except (websockets.exceptions.ConnectionClosed, ConnectionResetError, OSError):
         pass
 

@@ -1,14 +1,14 @@
 const TIER_COLORS = {
-  Iron: '#6b7684',
-  Bronze: '#b0692f',
-  Silver: '#c0c8d0',
-  Gold: '#e6bd5c',
-  Platinum: '#31c8b5',
-  Diamond: '#5a8df7',
-  Ascendant: '#4fd97e',
-  Immortal: '#f0505e',
-  Radiant: '#e8c468',
-  Unranked: '#505862',
+  Iron: '#7a8594',
+  Bronze: '#c47d3b',
+  Silver: '#d0d8e0',
+  Gold: '#f0c040',
+  Platinum: '#3de8d5',
+  Diamond: '#6aa0ff',
+  Ascendant: '#5ae88a',
+  Immortal: '#ff5a68',
+  Radiant: '#f0c040',
+  Unranked: '#606a78',
 }
 
 // Hexagonal outer border (consistent across all tiers except Radiant)
@@ -44,23 +44,23 @@ const DETAILS = {
 // Radiant special laurel/wreath shape
 function RadiantBadge({ color }) {
   return (
-    <g>
-      <path d={OUTER_HEX} fill="#1a1f25" stroke="#2a2f35" strokeWidth="1.5" />
-      <path d={INNER_HEX_BORDER} fill="none" stroke="#3a3f45" strokeWidth="0.5" opacity="0.5" />
+    <g filter="url(#rad-glow)">
+      <path d={OUTER_HEX} fill="#0d1117" stroke="#1f2a35" strokeWidth="1.5" />
+      <path d={INNER_HEX_BORDER} fill="none" stroke="#2a3a45" strokeWidth="0.5" opacity="0.5" />
       {/* Laurel left */}
-      <path d="M6 16 Q4 12 7 8 Q9 10 8 13 Q7 15 6 16 Z" fill={color} opacity="0.9" />
+      <path d="M6 16 Q4 12 7 8 Q9 10 8 13 Q7 15 6 16 Z" fill={color} opacity="0.95" />
       <path d="M5 14 Q3 11 5.5 7 Q7.5 9 7 12 Q6 14 5 14 Z" fill={color} opacity="0.7" />
       {/* Laurel right */}
-      <path d="M18 16 Q20 12 17 8 Q15 10 16 13 Q17 15 18 16 Z" fill={color} opacity="0.9" />
+      <path d="M18 16 Q20 12 17 8 Q15 10 16 13 Q17 15 18 16 Z" fill={color} opacity="0.95" />
       <path d="M19 14 Q21 11 18.5 7 Q16.5 9 17 12 Q18 14 19 14 Z" fill={color} opacity="0.7" />
       {/* Center diamond */}
       <path d="M12 9 L14.5 12 L12 15 L9.5 12 Z" fill={color} />
-      <path d="M12 10.5 L13.2 12 L12 13.5 L10.8 12 Z" fill="#fff" opacity="0.6" />
+      <path d="M12 10.5 L13.2 12 L12 13.5 L10.8 12 Z" fill="#fff" opacity="0.7" />
     </g>
   )
 }
 
-export function RankBadge({ rank, size = 18 }) {
+export function RankBadge({ rank, size = 20 }) {
   const s = String(rank || '')
   const parts = s.split(' ')
   const tier = parts[0]
@@ -69,10 +69,10 @@ export function RankBadge({ rank, size = 18 }) {
 
   if (isRadiant) {
     return (
-      <svg className="rank-badge" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <svg className="rank-badge" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" role="img" aria-label={`Rank: ${rank}`}>
         <defs>
           <filter id="rad-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -87,33 +87,34 @@ export function RankBadge({ rank, size = 18 }) {
   const gemPath = GEMS[tier] || GEMS.Unranked
   const detailPath = DETAILS[tier] || DETAILS.Unranked
   const filterId = `glow-${tier}`
+  const gradId = `grad-${tier}`
 
   return (
-    <svg className="rank-badge" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="rank-badge" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" role="img" aria-label={`Rank: ${rank}`}>
       <defs>
         <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id={`grad-${tier}`} cx="40%" cy="40%" r="60%">
+        <radialGradient id={gradId} cx="40%" cy="40%" r="60%">
           <stop offset="0%" stopColor={color} stopOpacity="1" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.6" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.5" />
         </radialGradient>
       </defs>
 
       {/* Outer hexagonal border */}
-      <path d={OUTER_HEX} fill="#1a1f25" stroke="#2a2f35" strokeWidth="1.5" />
-      <path d={INNER_HEX_BORDER} fill="none" stroke="#3a3f45" strokeWidth="0.5" opacity="0.4" />
+      <path d={OUTER_HEX} fill="#0d1117" stroke="#1f2a35" strokeWidth="1.5" />
+      <path d={INNER_HEX_BORDER} fill="none" stroke="#2a3a45" strokeWidth="0.5" opacity="0.4" />
 
       {/* Inner gem with glow */}
       <path d={gemPath} fill={color} filter={`url(#${filterId})`} />
-      <path d={gemPath} fill={`url(#grad-${tier})`} />
+      <path d={gemPath} fill={`url(#${gradId})`} />
 
       {/* Detail overlay */}
-      <path d={detailPath} fill="#fff" opacity="0.25" />
+      <path d={detailPath} fill="#fff" opacity="0.3" />
     </svg>
   )
 }

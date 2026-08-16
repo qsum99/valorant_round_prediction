@@ -1241,7 +1241,11 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
 
                     elif name in ("spike_defused", "spike_detonated"):
                         site = state.spike_site or ""
+                        was_planted = state.spike_planted
                         state.on_spike_cleared()
+                        if not was_planted:
+                            log.info(f"spike event '{name}' with no plant recorded — ignoring stale round reset")
+                            continue
                         if name == "spike_defused":
                             log.info(f"🛡️ Spike defused on {site or '?'}")
                         else:
