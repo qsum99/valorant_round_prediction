@@ -51,12 +51,12 @@
 }
 
 .ally-fill {
-  background: linear-gradient(90deg, #ff2a3c 0%, var(--ally) 100%);
+  background: linear-gradient(90deg, var(--ally-glow) 0%, var(--ally) 100%);
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 
 .enemy-fill {
-  background: linear-gradient(90deg, var(--enemy) 0%, #00b3a1 100%);
+  background: linear-gradient(90deg, var(--enemy) 0%, var(--enemy-glow) 100%);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   margin-left: auto;
 }

@@ -1118,6 +1118,15 @@ async def game_loop(predictor: Predictor, watcher: LogWatcher, buy_advisor: BuyA
                             buy_rec=buy_rec,
                         )
 
+                        # Ensure local_side is current before broadcasting
+                        # (Overwolf may deliver "team" in a later info event than round_phase)
+                        if state.raw.get("team"):
+                            _val = str(state.raw["team"]).lower()
+                            if "def" in _val or "blue" in _val:
+                                state.local_side = "defense"
+                            elif "att" in _val or "red" in _val:
+                                state.local_side = "attack"
+
                         log.info(
                             f"🎯 Round {max(1, state.round_number)} | {state.map_name or 'Valorant'} | "
                             f"Pre-round: {prob*100:.1f}% allies (Score {state.score_won}-{state.score_lost}) | "

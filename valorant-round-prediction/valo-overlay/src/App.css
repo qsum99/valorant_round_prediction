@@ -25,6 +25,21 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Halftime side swap — 3D card flip (perspective on parent, rotateY on panel) */
+.overlay-root {
+  perspective: 900px;
+}
+
+.overlay-root.flipping .overlay-panel {
+  animation: cardFlip 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+@keyframes cardFlip {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
 .status-panel {
   display: flex;
   align-items: center;
@@ -60,30 +75,28 @@
 .end-panel { 
   text-align: center; 
   padding: 20px 16px; 
-  border-top-width: 3px;
-  border-top-style: solid;
 }
-.end-panel.victory { border-top-color: var(--enemy); }
-.end-panel.defeat  { border-top-color: var(--ally); }
 
-.end-result {
-  display: block;
+.end-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--surface3);
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-  margin-bottom: 4px;
-}
-.victory .end-result { color: var(--enemy); }
-.defeat  .end-result { color: var(--ally); }
-
-.end-score {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--text-2);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  animation: endStatusPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes endStatusPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
 }
 
 /* Post Match Report Expansion */
@@ -125,15 +138,15 @@
 }
 
 .spike-planted-banner.ally-plant {
-  background: var(--gold-dim);
-  border-color: var(--gold);
-  color: var(--gold);
+  background: rgba(79, 195, 247, 0.15);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
 }
 
 .spike-planted-banner.enemy-plant {
-  background: var(--ally-dim);
-  border-color: var(--ally);
-  color: var(--ally);
+  background: rgba(255, 70, 85, 0.15);
+  border-color: #ff4655;
+  color: #ff4655;
   animation: spbSlideIn var(--transition-base) ease-out, spbPulse 1.4s ease-in-out infinite;
 }
 
@@ -174,63 +187,6 @@
   background: var(--ally-dim);
   border-color: var(--ally);
   color: var(--ally);
-}
-
-/* Dev preview floating toolbar */
-.dev-preview-bar {
-  position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-toast);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(13, 19, 29, 0.9);
-  border: 1px solid var(--border-strong);
-  border-radius: 20px;
-  padding: 4px 10px;
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-md);
-  font-family: var(--font-display);
-  pointer-events: auto;
-}
-
-.dev-preview-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: var(--text-4);
-  padding-right: 4px;
-}
-
-.dev-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-3);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 3px 8px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.dev-btn:hover {
-  color: var(--text-1);
-  background: var(--surface2);
-}
-
-.dev-btn.active {
-  background: var(--enemy-dim);
-  border-color: var(--enemy);
-  color: var(--enemy);
 }
 
 @media (prefers-reduced-motion: reduce) {

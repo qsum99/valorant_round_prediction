@@ -80,6 +80,51 @@
   --z-tooltip:     1200;
 }
 
+/* Animatable team color properties (morph instead of snap on halftime swap) */
+@property --ally         { syntax: '<color>'; inherits: true; initial-value: #ff4655; }
+@property --ally-dim     { syntax: '<color>'; inherits: true; initial-value: rgba(255,70,85,0.15); }
+@property --ally-glow    { syntax: '<color>'; inherits: true; initial-value: rgba(255,70,85,0.40); }
+@property --ally-strong  { syntax: '<color>'; inherits: true; initial-value: rgba(255,70,85,0.25); }
+@property --enemy        { syntax: '<color>'; inherits: true; initial-value: #00e5cc; }
+@property --enemy-dim    { syntax: '<color>'; inherits: true; initial-value: rgba(0,229,204,0.15); }
+@property --enemy-glow   { syntax: '<color>'; inherits: true; initial-value: rgba(0,229,204,0.40); }
+@property --enemy-strong { syntax: '<color>'; inherits: true; initial-value: rgba(0,229,204,0.25); }
+
+/* Side themes — attackers red, defenders blue (Valorant minimap colors) */
+.overlay-root[data-side='attack'] {
+  --ally:         #ff4655;
+  --ally-dim:     rgba(255,70,85,0.15);
+  --ally-glow:    rgba(255,70,85,0.40);
+  --ally-strong:  rgba(255,70,85,0.25);
+  --enemy:        #4fc3f7;
+  --enemy-dim:    rgba(79,195,247,0.15);
+  --enemy-glow:   rgba(79,195,247,0.40);
+  --enemy-strong: rgba(79,195,247,0.25);
+}
+
+.overlay-root[data-side='defense'] {
+  --ally:         #4fc3f7;
+  --ally-dim:     rgba(79,195,247,0.15);
+  --ally-glow:    rgba(79,195,247,0.40);
+  --ally-strong:  rgba(79,195,247,0.25);
+  --enemy:        #ff4655;
+  --enemy-dim:    rgba(255,70,85,0.15);
+  --enemy-glow:   rgba(255,70,85,0.40);
+  --enemy-strong: rgba(255,70,85,0.25);
+}
+
+.overlay-root {
+  transition:
+    --ally var(--transition-slow),
+    --ally-dim var(--transition-slow),
+    --ally-glow var(--transition-slow),
+    --ally-strong var(--transition-slow),
+    --enemy var(--transition-slow),
+    --enemy-dim var(--transition-slow),
+    --enemy-glow var(--transition-slow),
+    --enemy-strong var(--transition-slow);
+}
+
 /* Reduced Motion - Strict Rule */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -117,6 +162,8 @@ body {
 /* Utility Classes */
 .text-ally    { color: var(--ally); }
 .text-enemy   { color: var(--enemy); }
+.ally-text    { color: var(--ally); }
+.enemy-text   { color: var(--enemy); }
 .text-gold    { color: var(--gold); }
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
