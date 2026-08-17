@@ -592,12 +592,21 @@
 }
 
 .econ-tile {
+  position: relative;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   background: var(--surface2);
   border-left: 3px solid var(--tile-accent, var(--text-4));
+  transition: border-color var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
+}
+
+.econ-tile:hover {
+  border-color: var(--border-strong);
 }
 
 .econ-tile-empty {

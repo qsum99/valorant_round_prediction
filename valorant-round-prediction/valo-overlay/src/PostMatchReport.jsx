@@ -720,10 +720,9 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
               const winRate = played > 0 ? Math.round((won / played) * 100) : 0
 
               return (
-                <SpotlightCard
+                <div
                   key={key}
                   className={`econ-tile ${played === 0 ? 'econ-tile-empty' : ''}`}
-                  spotlightColor={`${color}22`}
                   style={{ '--tile-accent': color }}
                 >
                   <div className="econ-tile-header">
@@ -758,7 +757,7 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
                       <span className="text-muted">0 rounds played</span>
                     )}
                   </div>
-                </SpotlightCard>
+                </div>
               )
             })}
           </div>
