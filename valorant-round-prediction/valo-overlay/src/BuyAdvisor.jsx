@@ -1,5 +1,4 @@
 import { ShoppingCart, ShieldAlert, ArrowRight, Wallet, Target, Zap } from 'lucide-react'
-import { BorderBeam } from './components/BorderBeam'
 import './BuyAdvisor.css'
 
 const URGENCY_COLORS = {
@@ -87,8 +86,6 @@ export function BuyAdvisor({ recommendation, round }) {
         '--ba-accent-border': accent.border
       }}
     >
-      {isHighUrgency && <BorderBeam size={90} duration={4} colorFrom="var(--ally)" colorTo="var(--gold)" />}
-
       {/* Header */}
       <div className="ba-header">
         <div className="ba-rec-group">

@@ -29,7 +29,6 @@ import {
 } from 'lucide-react'
 import { RankBadge } from './RankBadge'
 import { SpotlightCard } from './components/SpotlightCard'
-import { BorderBeam } from './components/BorderBeam'
 import { ShinyText } from './components/ShinyText'
 import './PostMatchReport.css'
 
@@ -415,15 +414,8 @@ export function PostMatchReport({ report, reportUrl, reportFile, onOpenReport })
 
   return (
     <div className="pmr-container" ref={containerRef}>
-      {/* 1. Header Hero Card with BorderBeam */}
+      {/* 1. Header Hero Card */}
       <div className={`pmr-card pmr-header-card ${isVictory ? 'theme-victory' : 'theme-defeat'}`}>
-        <BorderBeam 
-          size={180} 
-          duration={8} 
-          colorFrom={isVictory ? 'var(--enemy)' : 'var(--ally)'} 
-          colorTo="var(--gold)" 
-        />
-
         <div className="header-left">
           <div className="result-badge-row">
             <span className={`result-pill ${isVictory ? 'pill-victory' : 'pill-defeat'}`}>
